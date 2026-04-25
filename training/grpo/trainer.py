@@ -168,7 +168,7 @@ def make_rollout_func(env_client, max_steps: int, tokenizer):
 
         prompt_ids_out: list[list[int]] = []
         completion_ids_out: list[list[int]] = []
-        logprobs_out: list[list[list[float | None]]] = []
+        logprobs_out: list[list[float]] = []
         env_mask_out: list[list[int]] = []
         trajectories: list[EpisodeTrajectory] = []
 
@@ -185,7 +185,7 @@ def make_rollout_func(env_client, max_steps: int, tokenizer):
             prompt_ids_out.append(list(prompt_token_ids))
 
             completion_token_ids: list[int] = []
-            completion_logprobs: list[list[float | None]] = []
+            completion_logprobs: list[float] = []
             env_mask: list[int] = []
 
             steps: list[RolloutStep] = []
@@ -199,7 +199,13 @@ def make_rollout_func(env_client, max_steps: int, tokenizer):
                     num_generations=1,
                 )
                 turn_completion_ids: list[int] = list(gen_completion_ids[0])
-                turn_logprobs: list[list[float | None]] = list(gen_logprobs[0])
+                # vLLM returns shape (seq_len, num_logprobs); TRL collapses with lp[0]
+                # (sampled-token logprob). Mirror that here so sampling_per_token_logps
+                # arrives as 2D list[list[float]] before tensorization in TRL.
+                turn_logprobs: list[float] = [
+                    float(lp[0]) if lp and lp[0] is not None else 0.0
+                    for lp in gen_logprobs[0]
+                ]
 
                 completion_token_ids.extend(turn_completion_ids)
                 completion_logprobs.extend(turn_logprobs)
@@ -253,13 +259,13 @@ def make_rollout_func(env_client, max_steps: int, tokenizer):
                     "input_ids"
                 ]
                 completion_token_ids.extend(feedback_ids)
-                completion_logprobs.extend([[0.0]] * len(feedback_ids))
+                completion_logprobs.extend([0.0] * len(feedback_ids))
                 env_mask.extend([0] * len(feedback_ids))
                 current_input_ids = list(prompt_token_ids) + completion_token_ids
 
             if not completion_token_ids:
                 completion_token_ids = [pad_id]
-                completion_logprobs = [[0.0]]
+                completion_logprobs = [0.0]
                 env_mask = [0]
 
             completion_ids_out.append(completion_token_ids)
