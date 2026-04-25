@@ -29,7 +29,6 @@ trainer:
   use_vllm: true
   vllm_mode: colocate
   vllm_gpu_memory_utilization: 0.35
-  vllm_max_model_len: 2048
   max_steps: 5
   save_steps: 5
   logging_steps: 1

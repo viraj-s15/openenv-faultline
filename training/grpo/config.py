@@ -104,7 +104,6 @@ def build_grpo_config(settings: dict):
         "logging_steps",
         "vllm_mode",
         "vllm_gpu_memory_utilization",
-        "vllm_max_model_len",
         "vllm_tensor_parallel_size",
     ):
         if key in trainer:
