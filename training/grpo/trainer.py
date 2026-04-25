@@ -126,7 +126,8 @@ def make_rollout_func(llm_client, env_client, max_steps: int, tokenizer):
     """
     pad_id = tokenizer.pad_token_id or tokenizer.eos_token_id
 
-    def rollout_func(prompts, args, processing_class):
+    def rollout_func(prompts, trainer):
+        processing_class = trainer.processing_class
         prompt_ids_list: list[list[int]] = []
         completion_ids_list: list[list[int]] = []
         logprobs_list: list[list[float]] = []
