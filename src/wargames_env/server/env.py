@@ -10,6 +10,7 @@ from wargames_env.server.blue_defender import BlueDefender, select_blue_defender
 from wargames_env.server.config_baseline import ConfigBaseline
 from wargames_env.server.metrics_poller import MetricsPoller
 from wargames_env.server.process_manager import ProcessManager
+from wargames_env.server.reward import RewardContext, compute_red_reward
 
 
 @dataclass(frozen=True)
@@ -39,6 +40,7 @@ class WarGamesEnv:
         self.max_steps = 10
         self.last_exit_code = 0
         self._blue_defender = BlueDefender(select_blue_defender(None))
+        self._recent_commands: list[str] = []
 
     def _write_default_registry(self) -> None:
         self.mesh_root.mkdir(parents=True, exist_ok=True)
@@ -66,10 +68,14 @@ class WarGamesEnv:
         )
 
     def _observation(
-        self, command_output: str, done: bool, reward: float
+        self,
+        command_output: str,
+        done: bool,
+        reward: float,
+        metrics=None,
     ) -> WarGamesObservation:
-        self._metrics_poller.poll_once()
-        metrics = self._metrics_poller.get_current_metrics()
+        if metrics is None:
+            metrics = self._snapshot_metrics()
         return WarGamesObservation(
             command_output=command_output,
             metrics=metrics,
@@ -77,6 +83,10 @@ class WarGamesEnv:
             done=done,
             reward=reward,
         )
+
+    def _snapshot_metrics(self):
+        self._metrics_poller.poll_once()
+        return self._metrics_poller.get_current_metrics()
 
     def _run_red_command(self, command: str, timeout_s: float) -> RedCommandResult:
         started_at = time.monotonic()
@@ -133,6 +143,7 @@ class WarGamesEnv:
     ) -> WarGamesObservation:
         self.episode_id = str(uuid4())
         self.step_count = 0
+        self._recent_commands = []
         self._blue_defender = BlueDefender(select_blue_defender(task_name))
         Path("/tmp/current_task").write_text(
             self._blue_defender.selection.task_name, encoding="utf-8"
@@ -144,10 +155,7 @@ class WarGamesEnv:
         self._process_manager.restart_all()
         if not self._process_manager.wait_healthy(timeout_s=30):
             raise RuntimeError("Services failed health checks after reset")
-        self._metrics_poller.poll_once()
-        self._blue_defender.baseline_metrics = (
-            self._metrics_poller.get_current_metrics()
-        )
+        self._blue_defender.baseline_metrics = self._snapshot_metrics()
         return self._observation("WarGames mesh ready.", done=False, reward=0.0)
 
     def step(
@@ -158,8 +166,10 @@ class WarGamesEnv:
     ) -> StepResult:
         self.step_count += 1
         timeout = timeout_s or 10
+        metrics_before = self._snapshot_metrics()
         command_result = self._run_red_command(action.command, timeout_s=timeout)
         self.last_exit_code = command_result.exit_code
+        metrics_after_red = self._snapshot_metrics()
         blue_actions = self._blue_defender.tick(
             red_command=command_result.command,
             red_exit_code=command_result.exit_code,
@@ -168,11 +178,28 @@ class WarGamesEnv:
             project_root=self.project_root,
             mesh_root=self.mesh_root,
         )
+        metrics_after_blue = self._snapshot_metrics()
+        reward_breakdown = compute_red_reward(
+            RewardContext(
+                metrics_before=metrics_before,
+                metrics_after_red=metrics_after_red,
+                metrics_after_blue=metrics_after_blue,
+                command=command_result.command,
+                recent_commands=self._recent_commands,
+            )
+        )
+        self._recent_commands.append(command_result.command)
+        self._recent_commands = self._recent_commands[-5:]
         done = self.step_count >= self.max_steps
-        observation = self._observation(command_result.output, done=done, reward=0.0)
+        observation = self._observation(
+            command_result.output,
+            done=done,
+            reward=reward_breakdown.total,
+            metrics=metrics_after_blue,
+        )
         return StepResult(
             observation=observation,
-            reward=0.0,
+            reward=reward_breakdown.total,
             done=done,
             info={
                 "exit_code": command_result.exit_code,
@@ -182,6 +209,12 @@ class WarGamesEnv:
                 "blue_actions": [
                     blue_action.model_dump() for blue_action in blue_actions
                 ],
+                "reward": {
+                    **reward_breakdown.model_dump(),
+                    "metrics_before": metrics_before.model_dump(),
+                    "metrics_after_red": metrics_after_red.model_dump(),
+                    "metrics_after_blue": metrics_after_blue.model_dump(),
+                },
             },
         )
 

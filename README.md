@@ -43,6 +43,34 @@ The Red agent sends a single raw bash command:
 - `command`
 - `duration_ms`
 - `blue_actions`
+- `reward`
+
+## Phase 3 Red Reward
+
+`/step` now returns dense per-step Red reward in `[0.0, 1.0]`. The environment snapshots metrics before Red, after Red, and after Blue so the score can distinguish immediate damage from damage that persists through defense.
+
+Reward components:
+
+- `success_rate_drop`: gateway success rate decreased.
+- `latency_spike`: gateway p99 latency increased.
+- `queue_backup`: Redis `job_queue` depth increased.
+- `stealth_bonus`: damage persisted after Blue's tick.
+- `no_op_penalty`: metrics did not materially change.
+- `repeat_penalty`: Red repeated a recent command.
+
+`info.reward` includes the total, component values, weighted component values, and metric snapshots:
+
+```json
+{
+  "reward": {
+    "total": 0.4,
+    "components": {"success_rate_drop": 0.5},
+    "metrics_before": {},
+    "metrics_after_red": {},
+    "metrics_after_blue": {}
+  }
+}
+```
 
 ## Phase 2 Blue Defense
 
@@ -122,4 +150,4 @@ Stealth:
 truncate -s 0 /tmp/worker.log
 ```
 
-Phase 1 intentionally allows destructive commands inside the isolated environment. Later phases add Blue defense and reward logic.
+Phase 1 intentionally allows destructive commands inside the isolated environment. Phase 2 and Phase 3 add Blue defense and dense Red reward scoring around those actions.
