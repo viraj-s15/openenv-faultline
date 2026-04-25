@@ -101,39 +101,52 @@ def main() -> None:
     trainer.train()
 
     if os.getenv("PUBLISH_ON_FINISH", "true").lower() in {"1", "true", "yes"}:
-        _publish_artifacts(settings)
+        _publish_artifacts(settings, trainer)
 
 
-def _publish_artifacts(settings: dict) -> None:
-    """Push adapter (and optionally merged model) to HF Hub after training."""
+def _publish_artifacts(settings: dict, trainer) -> None:
+    """After training: save final adapter, push it to HF Hub, then merge+push
+    in a subprocess so vLLM's GPU memory is released before the base model is
+    loaded for merging (in-process vLLM cleanup is unreliable)."""
+    import subprocess as _sub
+    import sys as _sys
     from pathlib import Path as _Path
+
+    output_dir = _Path(settings["trainer"]["output_dir"])
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    print(f"[publish] saving final adapter to {output_dir}", flush=True)
+    try:
+        trainer.save_model(str(output_dir))
+    except Exception as exc:
+        print(f"[publish] trainer.save_model failed: {exc}", flush=True)
+
+    if not (output_dir / "adapter_config.json").exists():
+        print(f"[publish] no adapter_config.json under {output_dir}; skipping push", flush=True)
+        return
 
     from training.publish.push_adapter import push_adapter
 
-    output_dir = _Path(settings["trainer"]["output_dir"])
-    if not output_dir.exists():
-        print(f"[publish] skip: {output_dir} does not exist", flush=True)
-        return
-
-    print(f"[publish] pushing adapter from {output_dir}", flush=True)
+    print("[publish] pushing adapter to HF Hub", flush=True)
     try:
         push_adapter(folder_path=output_dir, log_to_wandb=False)
+        print("[publish] adapter push complete", flush=True)
     except Exception as exc:
         print(f"[publish] adapter push failed: {exc}", flush=True)
+
+    if os.getenv("PUBLISH_MERGED", "true").lower() not in {"1", "true", "yes"}:
         return
 
-    if os.getenv("PUBLISH_MERGED", "false").lower() in {"1", "true", "yes"}:
-        from training.publish.push_merged import push_merged_model
-
-        print("[publish] merging adapter into base and pushing", flush=True)
-        try:
-            push_merged_model(
-                adapter_path=output_dir,
-                output_dir="training/artifacts/merged",
-                log_to_wandb=False,
-            )
-        except Exception as exc:
-            print(f"[publish] merged push failed: {exc}", flush=True)
+    print("[publish] launching merge subprocess (clean GPU context)", flush=True)
+    proc = _sub.run(
+        [_sys.executable, "-m", "training.publish.merge_runner",
+         "--adapter-path", str(output_dir)],
+        env=os.environ.copy(),
+    )
+    if proc.returncode != 0:
+        print(f"[publish] merge subprocess exited {proc.returncode}", flush=True)
+    else:
+        print("[publish] merged push complete", flush=True)
 
 
 if __name__ == "__main__":

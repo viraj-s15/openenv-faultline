@@ -61,12 +61,17 @@ def push_merged_model(
 ):
     """Merge adapter into base, write a model card, push the merged repo to the Hub."""
     publish_cfg = _load_publish_config(config_path)
-    repo_id = repo_id or publish_cfg["merged_repo_id"]
+    repo_id = (
+        repo_id
+        or os.getenv("PUBLISH_MERGED_REPO_ID")
+        or publish_cfg["merged_repo_id"]
+    )
     private = publish_cfg.get("private", False) if private is None else private
     license = license or publish_cfg.get("license", "mit")
 
     if base_model is None:
-        training_yaml = Path("training/config/training.base.yaml")
+        training_cfg_path = os.getenv("TRAINING_CONFIG", "training/config/training.base.yaml")
+        training_yaml = Path(training_cfg_path)
         base_model = yaml.safe_load(training_yaml.read_text())["model"]["base_model"]
 
     merged_dir = Path(
@@ -89,7 +94,12 @@ def push_merged_model(
 
     api = HfApi(token=os.getenv("HF_TOKEN"))
     api.create_repo(repo_id=repo_id, repo_type="model", private=private, exist_ok=True)
-    result = api.upload_folder(repo_id=repo_id, folder_path=str(merged_dir))
+    api.upload_large_folder(
+        repo_id=repo_id,
+        repo_type="model",
+        folder_path=str(merged_dir),
+    )
+    result = f"https://huggingface.co/{repo_id}"
 
     if log_to_wandb:
         _log_wandb_artifact(merged_dir, name=f"{Path(repo_id).name}-merged")
