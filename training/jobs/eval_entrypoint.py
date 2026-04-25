@@ -15,7 +15,12 @@ def main() -> None:
     settings = yaml.safe_load(config_path.read_text())
     env_client = WarGamesTrainingClient(settings["env"]["base_url"])
     model, tokenizer = load_training_model(settings)
-    llm_client = LocalGenerationClient(model=model, tokenizer=tokenizer)
+    llm_client = LocalGenerationClient(
+        model=model,
+        tokenizer=tokenizer,
+        max_new_tokens=int(settings["trainer"]["max_completion_length"]),
+        temperature=float(settings["trainer"]["temperature"]),
+    )
     episode = run_episode(
         llm_client=llm_client,
         env_client=env_client,

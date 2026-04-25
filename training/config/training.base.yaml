@@ -7,6 +7,7 @@ model:
   load_in_4bit: true
   lora_rank: 16
   lora_alpha: 16
+  random_state: 3407
   target_modules:
     - q_proj
     - k_proj
@@ -25,7 +26,13 @@ trainer:
   max_completion_length: 128
   temperature: 0.7
   beta: 0.001
-  use_vllm: false
+  # rollout_func only fires on the vLLM path in TRL >=0.25; unsloth's
+  # FastLanguageModel(fast_inference=True) provides a vLLM backend, so this
+  # MUST be true for the env-grounded rollout to be exercised.
+  use_vllm: true
+  max_steps: 1500
+  save_steps: 250
+  logging_steps: 10
 wandb:
   enabled: true
   project: faultline

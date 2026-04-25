@@ -1,3 +1,8 @@
+"""Load the base model with unsloth + GRPO-patched LoRA adapter."""
+
+from __future__ import annotations
+
+
 def load_training_model(settings: dict):
     from unsloth import FastLanguageModel, PatchFastRL
 
@@ -16,5 +21,7 @@ def load_training_model(settings: dict):
         lora_dropout=0,
         bias="none",
         use_gradient_checkpointing="unsloth",
+        random_state=settings["model"].get("random_state", 3407),
+        max_seq_length=settings["model"]["max_seq_length"],
     )
     return model, tokenizer

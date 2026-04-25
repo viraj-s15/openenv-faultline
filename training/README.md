@@ -68,6 +68,9 @@ Controls model, LoRA, and trainer settings:
 | `trainer.learning_rate` | 5e-6 | GRPO learning rate |
 | `trainer.num_generations` | 4 | Samples per prompt |
 | `trainer.max_completion_length` | 128 | Max tokens per completion |
+| `trainer.use_vllm` | true | Required for env-grounded rollout_func (TRL >=0.25 only invokes rollout_func on the vLLM path) |
+| `trainer.max_steps` | 1500 | Stops training at this trainer step |
+| `trainer.save_steps` | 250 | Checkpoint cadence; the W&B artifact callback logs each checkpoint |
 | `rollout.max_steps_per_episode` | 10 | Steps per rollout |
 | `rollout.reward_aggregation` | sum | How to combine step rewards |
 
@@ -107,7 +110,12 @@ wandb:
   run_name: null      # auto-generated if null
 ```
 
-Set `wandb.enabled: false` to disable. When enabled, TRL reports loss, reward, and rollout stats to the wandb dashboard automatically.
+Set `wandb.enabled: false` to disable. When enabled, TRL reports loss, reward, and rollout stats to the wandb dashboard automatically. The trainer also logs:
+
+- per-step Red prompts and completions (`log_completions=true` is forced on when wandb is enabled, so the Red bash commands appear as a W&B Table)
+- the LoRA adapter directory as a W&B `model` artifact at every `save_steps` checkpoint and at end-of-training (see `training/grpo/callbacks.py`)
+
+When wandb is enabled the entrypoint requires `WANDB_API_KEY` to be set; pass it via `--secrets WANDB_API_KEY HF_TOKEN` on HF Jobs.
 
 To log in before training:
 
@@ -130,7 +138,7 @@ hf jobs uv run \
   --flavor a100-large \
   --timeout 6h \
   --with "./[training]" \
-  --secrets HF_TOKEN \
+  --secrets HF_TOKEN WANDB_API_KEY \
   python training/jobs/train_entrypoint.py
 ```
 
@@ -142,11 +150,11 @@ export TRAINING_CONFIG=training/config/training.base.yaml
 
 ### How it works
 
-1. Loads base model with unsloth + LoRA adapters
-2. Selects curriculum tasks based on current trainer step
-3. For each batch, runs rollouts against the live environment (Red agent sends commands, gets rewards)
-4. GRPO updates model weights using rollout rewards
-5. Checkpoints saved to `training/artifacts/checkpoints/`
+1. Loads base model with unsloth + LoRA adapters (vLLM-backed when `use_vllm: true`)
+2. The curriculum callback hard-switches `trainer.train_dataset` when `state.global_step` crosses a `until_step` boundary in `curriculum.l0-l4.yaml`
+3. For each batch, `rollout_func` runs one full env episode per generation; `reward_from_rollout` aggregates per-step env rewards (sum)
+4. GRPO updates the LoRA weights using the group-relative advantages
+5. Checkpoints saved to `training/artifacts/checkpoints/checkpoint-N`; each is logged as a W&B model artifact when wandb is enabled
 
 ## 5. Publish
 
@@ -164,24 +172,19 @@ license: mit
 ```python
 from training.publish.push_adapter import push_adapter
 
-push_adapter(
-    repo_id="your-org/faultline-red-lora",
-    folder_path="training/artifacts/checkpoints/checkpoint-XXX",
-    private=False,
-)
+# Picks adapter_repo_id, private, license from training/config/publish.yaml
+# and base_model from training/config/training.base.yaml.
+push_adapter(folder_path="training/artifacts/checkpoints/checkpoint-1500")
 ```
 
 ### Push merged model
 
 ```python
-from training.publish.push_merged import export_merged_model
-from training.publish.model_card import build_model_card_text
+from training.publish.push_merged import push_merged_model
 
-output_dir = export_merged_model(
-    base_model="Qwen/Qwen3.5-9B",
-    adapter_path="training/artifacts/checkpoints/checkpoint-XXX",
-    output_dir="training/artifacts/merged",
-)
+# Reads merged_repo_id/private/license from publish.yaml and base_model from
+# training.base.yaml; merges in bf16 with low CPU mem usage and pushes the repo.
+push_merged_model(adapter_path="training/artifacts/checkpoints/checkpoint-1500")
 ```
 
 ## 6. Deploy to Hugging Face Spaces
@@ -264,7 +267,8 @@ On startup, the Vite plugin reads `outputs/` directories, converts CSV logs to J
 | `HF_TOKEN` | required | HF Jobs, push_adapter, Space |
 | `MODEL_REPO_ID` | — | Space (which model to load) |
 | `BASE_MODEL_NAME` | — | Space (required in adapter mode) |
-| `WANDB_MODE` | `disabled` | Set to `online` to log to wandb |
+| `WANDB_MODE` | forced `online` when `wandb.enabled: true`; `disabled` otherwise | `training/grpo/config.py::configure_wandb` |
+| `WANDB_API_KEY` | required when `wandb.enabled: true` | train_entrypoint.py |
 | `WANDB_PROJECT` | `faultline` | wandb project name |
 | `WANDB_ENTITY` | your default | wandb entity (team/user) |
 | `WANDB_NAME` | auto | Run name (auto-generated if not set) |
