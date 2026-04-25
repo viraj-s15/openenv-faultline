@@ -3,7 +3,7 @@ env:
   healthcheck_path: /state
 model:
   base_model: Qwen/Qwen3-1.7B
-  max_seq_length: 10240
+  max_seq_length: 4096
   load_in_4bit: false
   lora_rank: 16
   lora_alpha: 16
@@ -21,15 +21,15 @@ trainer:
   output_dir: training/artifacts/checkpoints-smoke
   learning_rate: 5.0e-6
   per_device_train_batch_size: 1
-  gradient_accumulation_steps: 4
+  gradient_accumulation_steps: 2
   num_generations: 4
-  max_completion_length: 1024
+  max_completion_length: 512
   temperature: 0.7
   beta: 0.001
   use_vllm: true
   vllm_mode: colocate
-  vllm_gpu_memory_utilization: 0.55
-  vllm_max_model_length: 10240
+  vllm_gpu_memory_utilization: 0.50
+  vllm_max_model_length: 4096
   gradient_checkpointing: true
   max_steps: 5
   save_steps: 5
@@ -38,7 +38,7 @@ wandb:
   enabled: true
   project: faultline-smoke
   entity: null
-  run_name: smoke-baseshape-1p7b
+  run_name: smoke-baseshape-a10g
 rollout:
-  max_steps_per_episode: 5
+  max_steps_per_episode: 3
   reward_aggregation: sum
