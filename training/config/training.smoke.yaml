@@ -1,0 +1,40 @@
+env:
+  base_url: http://localhost:8000  # overridden by ENV_BASE_URL in the job
+  healthcheck_path: /state
+model:
+  base_model: Qwen/Qwen3.5-9B
+  max_seq_length: 2048
+  load_in_4bit: true
+  lora_rank: 16
+  lora_alpha: 16
+  random_state: 3407
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+trainer:
+  algorithm: grpo
+  output_dir: training/artifacts/checkpoints-smoke
+  learning_rate: 5.0e-6
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 1
+  num_generations: 2
+  max_completion_length: 64
+  temperature: 0.7
+  beta: 0.001
+  use_vllm: true
+  max_steps: 5
+  save_steps: 5
+  logging_steps: 1
+wandb:
+  enabled: true
+  project: faultline-smoke
+  entity: null
+  run_name: smoke-a10g-large
+rollout:
+  max_steps_per_episode: 3
+  reward_aggregation: sum
