@@ -1,3 +1,10 @@
 internal
 
 dashboard/node_modules
+.venv
+.pytest_cache
+__pycache__
+outputs
+node_modules
+*.egg-info
+dump.rdb

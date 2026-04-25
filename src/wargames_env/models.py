@@ -1,0 +1,38 @@
+from typing import Any
+
+from openenv.core.env_server.types import Action, Observation
+from pydantic import BaseModel, Field, field_validator
+
+
+class SystemMetrics(BaseModel):
+    gateway_success_rate: float = Field(..., ge=0.0, le=1.0)
+    gateway_p99_latency_ms: float = Field(..., ge=0.0)
+    queue_depth: int = Field(..., ge=0)
+    worker_restart_count: int = Field(..., ge=0)
+    consumer_stall_count: int = Field(..., ge=0)
+
+
+class WarGamesAction(Action):
+    command: str = Field(..., description="Single bash command to execute")
+
+    @field_validator("command")
+    @classmethod
+    def command_must_not_be_empty(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("command must not be empty")
+        return value
+
+
+class WarGamesObservation(Observation):
+    command_output: str = Field(
+        ..., description="stdout and stderr from the last executed command"
+    )
+    metrics: SystemMetrics
+    process_status: dict[str, str] = Field(default_factory=dict)
+
+
+class StepResult(BaseModel):
+    observation: WarGamesObservation
+    reward: float = Field(..., ge=0.0, le=1.0)
+    done: bool
+    info: dict[str, Any] = Field(default_factory=dict)

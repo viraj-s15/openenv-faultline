@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openenv-wargames"
+version = "0.1.0"
+description = "WarGames OpenEnv environment for attacking a live distributed system"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi>=0.136.1",
+  "httpx>=0.28.1",
+  "openenv-core[core]>=0.2.3",
+  "pydantic>=2.13.3",
+  "uvicorn[standard]>=0.46.0",
+]
+
+[project.scripts]
+server = "wargames_env.server.app:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.black]
+target-version = ["py312"]
+
+[tool.setuptools.packages.find]
+where = ["src", "."]
+include = ["wargames_env*", "server*"]
+namespaces = true
+
+[dependency-groups]
+dev = [
+    "black>=26.3.1",
+    "pytest>=9.0.3",
+]
