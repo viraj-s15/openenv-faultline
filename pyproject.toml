@@ -20,6 +20,17 @@ dependencies = [
 [project.scripts]
 server = "wargames_env.server.app:main"
 
+[project.optional-dependencies]
+training = [
+  "huggingface_hub>=0.35.1",
+  "peft>=0.17.1",
+  "pyyaml>=6.0.2",
+  "torch>=2.8.0",
+  "transformers>=4.56.1",
+  "trl>=0.25.0",
+  "unsloth>=2025.9.4",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src", "."]
@@ -29,7 +40,7 @@ target-version = ["py312"]
 
 [tool.setuptools.packages.find]
 where = ["src", "."]
-include = ["wargames_env*", "server*"]
+include = ["wargames_env*", "server*", "training*"]
 namespaces = true
 
 [dependency-groups]

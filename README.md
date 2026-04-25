@@ -211,3 +211,9 @@ truncate -s 0 /tmp/worker.log
 ```
 
 Phase 1 intentionally allows destructive commands inside the isolated environment. Phase 2 and Phase 3 add Blue defense and dense Red reward scoring around those actions.
+
+## Training
+
+GRPO training, Hugging Face Job launch steps, adapter publishing, merged-model export, and Space deployment assets live under `training/`.
+
+Start with `training/README.md`.

@@ -1,0 +1,11 @@
+schedule:
+  - until_step: 250
+    tasks: [phase-2-blue-l0]
+  - until_step: 500
+    tasks: [phase-2-blue-l1]
+  - until_step: 750
+    tasks: [phase-2-blue-l2]
+  - until_step: 1000
+    tasks: [phase-2-blue-l3]
+  - until_step: 1500
+    tasks: [phase-2-blue-l4]

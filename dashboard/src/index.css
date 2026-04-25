@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+@theme {
+  --color-slate-950: #0b0d12;
+  --color-slate-900: #0f1117;
+  --color-slate-850: #141821;
+  --color-slate-800: #1a1d27;
+  --color-slate-750: #1e2130;
+  --color-slate-700: #2a2d3a;
+  --color-slate-600: #3a3f52;
+  --color-slate-500: #4a5068;
+  --color-slate-400: #6b7084;
+  --color-slate-300: #8b91a5;
+  --color-slate-200: #b0b6c8;
+  --color-slate-100: #d0d5e2;
+  --color-slate-50: #e4e6eb;
+
+  --color-red-400: #f97066;
+  --color-red-500: #ef4444;
+  --color-red-600: #dc2626;
+  --color-red-900: #3b1111;
+
+  --color-blue-400: #53b1fd;
+  --color-blue-500: #3b82f6;
+  --color-blue-600: #2563eb;
+  --color-blue-900: #0c2340;
+
+  --color-emerald-400: #34d399;
+  --color-emerald-500: #10b981;
+
+  --color-amber-400: #fbbf24;
+  --color-amber-500: #f59e0b;
+
+  --color-violet-400: #a78bfa;
+
+  --font-mono: "JetBrains Mono", "Fira Code", "SF Mono", monospace;
+  --font-sans: "Inter", "SF Pro Display", system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    background: var(--color-slate-950);
+    color: var(--color-slate-50);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-slate-700) transparent;
+  }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--color-slate-700); border-radius: 3px; }
+}
+
+/* Panel card */
+.panel {
+  background: var(--color-slate-850);
+  border: 1px solid var(--color-slate-700);
+  border-radius: 10px;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-slate-700);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-slate-300);
+}
+
+.feed-scroll {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+/* Gauge ring */
+.gauge-track {
+  stroke: var(--color-slate-750);
+}
+
+/* Metric value animation */
+.metric-value {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
