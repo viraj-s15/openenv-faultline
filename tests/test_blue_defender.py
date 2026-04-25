@@ -10,6 +10,7 @@ from wargames_env.server.blue_defender import (
     BlueSelection,
     select_blue_defender,
 )
+from wargames_env.server.blue_llm import BLUE_SYSTEM_PROMPT, build_blue_prompt
 from wargames_env.server.config_baseline import ConfigBaseline
 from wargames_env.server.env import WarGamesEnv
 
@@ -122,9 +123,12 @@ def test_step_runs_blue_tick_and_returns_blue_actions(tmp_path, monkeypatch):
         )(),
     )
 
-    result = env.step(action=type("Action", (), {"command": "date"})())
+    result = env.step(
+        action=type("Action", (), {"command": "date", "reasoning": "check clock"})()
+    )
 
     assert blue_defender.received["red_command"] == "date"
+    assert blue_defender.received["red_reasoning"] == "check clock"
     assert blue_defender.received["process_manager"] is env._process_manager
     assert result.info["blue_actions"] == [
         {
@@ -368,6 +372,7 @@ def test_llm_showdown_runs_one_defensive_command(tmp_path, monkeypatch):
 
     actions = defender.tick(
         red_command="redis-cli LPUSH job_queue '{broken'",
+        red_reasoning="poison queue",
         process_manager=FakeProcessManager(),
         metrics_poller=FakePoller(),
         project_root=tmp_path,
@@ -384,3 +389,32 @@ def test_llm_showdown_runs_one_defensive_command(tmp_path, monkeypatch):
             detail="exit_code=0 reasoning=clear poisoned state output=OK",
         )
     ]
+
+
+def test_blue_prompt_includes_runtime_contract_and_red_reasoning(tmp_path):
+    prompt = build_blue_prompt(
+        metrics=SystemMetrics(
+            gateway_success_rate=0.5,
+            gateway_p99_latency_ms=1200.0,
+            queue_depth=42,
+            worker_restart_count=1,
+            consumer_stall_count=0,
+        ),
+        process_status={"gateway": "running pid=1"},
+        red_command="echo '{\"db_write_delay_ms\":5000}' > /mesh/worker/config.json",
+        red_reasoning="slow worker writes",
+        project_root=tmp_path,
+        mesh_root=tmp_path / "mesh",
+    )
+
+    assert "RED REASONING:" in prompt
+    assert "slow worker writes" in prompt
+    assert "Redis queue key: job_queue" in prompt
+    assert "/tmp/gateway.log" in prompt
+    assert "worker/config.json" in prompt
+    assert "restore tampered configs" in prompt
+
+
+def test_blue_system_prompt_mentions_available_debugging_tools():
+    for tool_name in ["netstat", "ss", "lsof"]:
+        assert tool_name in BLUE_SYSTEM_PROMPT

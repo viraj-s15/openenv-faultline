@@ -95,6 +95,7 @@ class BlueDefender:
             project_root=kwargs["project_root"],
             mesh_root=kwargs["mesh_root"],
             red_command=str(kwargs.get("red_command", "")),
+            red_reasoning=kwargs.get("red_reasoning"),
         )
         return [
             BlueAction(

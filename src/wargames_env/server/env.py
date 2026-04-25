@@ -200,6 +200,7 @@ class WarGamesEnv:
         metrics_after_red = self._snapshot_metrics()
         blue_actions = self._blue_defender.tick(
             red_command=command_result.command,
+            red_reasoning=getattr(action, "reasoning", None),
             red_exit_code=command_result.exit_code,
             process_manager=self._process_manager,
             metrics_poller=self._metrics_poller,

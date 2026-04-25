@@ -10,7 +10,7 @@ from wargames_env.models import SystemMetrics
 
 BLUE_SYSTEM_PROMPT = """You are the incident commander for a live distributed system.
 Keep metrics green while a Red agent attacks the mesh.
-You have bash access with standard tools: ps, ls, cat, tail, curl, jq, redis-cli, kill, sed.
+You have bash access with standard tools: ps, ls, cat, tail, curl, jq, redis-cli, kill, sed, netstat, ss, lsof, ping, dig.
 Prefer mesh-native defensive actions: inspect logs, restore configs, send SIGHUP, restart services, sanitize Redis.
 Respond with compact JSON where `command` is required: {"command":"<bash command>","reasoning":"optional concise reason"}.
 No markdown. No explanation outside JSON."""
@@ -100,11 +100,19 @@ def build_blue_prompt(
     metrics: SystemMetrics,
     process_status: dict[str, str],
     red_command: str,
+    red_reasoning: object | None = None,
+    project_root: Path | None = None,
+    mesh_root: Path | None = None,
 ) -> str:
+    root = project_root or Path(os.getenv("APP_ROOT", "/home/user/app"))
+    mesh = mesh_root or Path(os.getenv("MESH_ROOT", "/mesh"))
+    reasoning = _single_line(str(red_reasoning or "")) or "(none provided)"
     return (
         "Current system state:\n\n"
         "LATEST RED COMMAND:\n"
         f"{red_command}\n\n"
+        "RED REASONING:\n"
+        f"{reasoning}\n\n"
         "METRICS:\n"
         f"- Gateway success rate: {metrics.gateway_success_rate:.1%}\n"
         f"- Gateway P99 latency: {metrics.gateway_p99_latency_ms:.0f}ms\n"
@@ -113,6 +121,13 @@ def build_blue_prompt(
         f"- Consumer stall count: {metrics.consumer_stall_count}\n\n"
         "SERVICE STATUS:\n"
         f"{process_status}\n\n"
+        "RUNTIME CONTRACT:\n"
+        f"- App root: {root}\n"
+        f"- Mesh root: {mesh}\n"
+        "- Redis queue key: job_queue\n"
+        "- Logs: /tmp/gateway.log, /tmp/auth.log, /tmp/worker.log, /tmp/job_gen.log\n"
+        "- Configs: gateway/blocked_routes.json, gateway/config.json, auth/config.json, worker/config.json, worker/job_generator_config.json\n"
+        "- Goal: keep services healthy, restore tampered configs, and sanitize poisoned Redis state.\n\n"
         "Return the single next defensive bash command."
     )
 
@@ -166,6 +181,7 @@ def run_blue_llm_tick(
     project_root: Path,
     mesh_root: Path,
     red_command: str,
+    red_reasoning: object | None = None,
 ) -> BlueLLMCommandResult:
     metrics_poller.poll_once()
     metrics = metrics_poller.get_current_metrics()
@@ -174,7 +190,14 @@ def run_blue_llm_tick(
         {"role": "system", "content": BLUE_SYSTEM_PROMPT},
         {
             "role": "user",
-            "content": build_blue_prompt(metrics, process_status, red_command),
+            "content": build_blue_prompt(
+                metrics=metrics,
+                process_status=process_status,
+                red_command=red_command,
+                red_reasoning=red_reasoning,
+                project_root=project_root,
+                mesh_root=mesh_root,
+            ),
         },
     ]
     raw_response = provider(messages)
