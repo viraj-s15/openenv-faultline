@@ -26,7 +26,6 @@ from training.grpo.callbacks import CurriculumCallback, WandbArtifactCallback
 from training.grpo.config import configure_wandb
 from training.grpo.model import load_training_model
 from training.grpo.trainer import (
-    LocalGenerationClient,
     build_prompt_dataset,
     build_trainer,
     make_rollout_func,
@@ -59,13 +58,7 @@ def main() -> None:
     configure_wandb(settings)
 
     env_client = WarGamesTrainingClient(settings["env"]["base_url"])
-    model, tokenizer = load_training_model(settings)
-    llm_client = LocalGenerationClient(
-        model=model,
-        tokenizer=tokenizer,
-        max_new_tokens=int(settings["trainer"]["max_completion_length"]),
-        temperature=float(settings["trainer"]["temperature"]),
-    )
+    model, tokenizer, lora_config = load_training_model(settings)
 
     schedule = curriculum["schedule"]
     initial_tasks = select_curriculum_tasks(schedule, trainer_step=0)
@@ -81,12 +74,12 @@ def main() -> None:
         dataset=dataset_builder(initial_tasks),
         reward_funcs=[reward_from_rollout],
         rollout_func=make_rollout_func(
-            llm_client=llm_client,
             env_client=env_client,
             max_steps=settings["rollout"]["max_steps_per_episode"],
             tokenizer=tokenizer,
         ),
         settings=settings,
+        peft_config=lora_config,
     )
     trainer_ref["trainer"] = trainer
 

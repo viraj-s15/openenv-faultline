@@ -14,7 +14,7 @@ def main() -> None:
     config_path = Path(os.getenv("TRAINING_CONFIG", "training/config/training.base.yaml"))
     settings = yaml.safe_load(config_path.read_text())
     env_client = WarGamesTrainingClient(settings["env"]["base_url"])
-    model, tokenizer = load_training_model(settings)
+    model, tokenizer, _ = load_training_model(settings)
     llm_client = LocalGenerationClient(
         model=model,
         tokenizer=tokenizer,

@@ -1,18 +1,24 @@
 """GRPO trainer wiring for the WarGames Red agent.
 
-Bridges TRL >=0.25 GRPO with the live WarGames environment:
+Bridges TRL >=1.2 GRPO with the live WarGames environment through a multi-turn
+vLLM rollout:
 
-- `LocalGenerationClient` wraps `model.generate` so the episode runner can sample
-  one bash command per env step from the policy under training.
 - `make_rollout_func` returns a TRL `RolloutFunc` that, for each prompt in a
-  group, runs a full env episode and reports per-completion reward via a
-  `trajectories` extra field. Requires `use_vllm: true` because TRL only invokes
-  rollout_func on the vLLM path.
+  group, runs a full env episode where every turn is sampled by the trainer's
+  colocated vLLM engine via `trainer.vllm_generation.generate(...)`. Real
+  per-token logprobs are returned alongside the sampled token ids so TRL's
+  importance sampling correction is well-defined.
+- Per-turn env feedback is appended to the running token sequence as a regular
+  user message; the corresponding tokens are masked out via the `env_mask`
+  extra field so they do not contribute to the loss.
 - `reward_from_rollout` reads `trajectories` from kwargs (TRL forwards rollout
   extra fields as reward kwargs) and aggregates per-step env rewards.
 - `build_prompt_dataset` returns a `datasets.Dataset` whose `prompt` column is
-  the formatted Red prompt for the initial environment state. Subsequent step
-  prompts are built inside the episode loop.
+  the formatted Red prompt for the initial environment state.
+
+Importantly, `peft_config` is passed to `GRPOTrainer` (instead of pre-wrapping
+the model). TRL needs to own the PEFT wrapping so it can register the `ref`
+adapter and merge LoRA deltas into the colocated vLLM weights at sync time.
 """
 
 from __future__ import annotations
@@ -20,15 +26,24 @@ from __future__ import annotations
 from typing import Any, Sequence
 
 
+from training.env_adapter.action_parser import (
+    ActionParseError,
+    NO_COMMAND_PROVIDED,
+    parse_model_command,
+)
 from training.env_adapter.observation_formatter import build_red_prompt
 from training.grpo.config import build_grpo_config
 from training.grpo.reward_adapter import aggregate_episode_reward
-from training.rollouts.episode_runner import run_episode
-from training.rollouts.trajectory import EpisodeTrajectory
+from training.rollouts.trajectory import EpisodeTrajectory, RolloutStep
 
 
 class LocalGenerationClient:
-    """Generates a single completion per call using the in-training model."""
+    """HF-transformers single-turn sampler used only by the eval entrypoint.
+
+    The training rollout path bypasses this and calls vLLM directly via the
+    trainer; this client exists so `eval_entrypoint.run_episode` can still
+    drive a transcript without spinning up vLLM.
+    """
 
     def __init__(
         self,
@@ -93,16 +108,9 @@ def build_prompt_dataset(
 
 
 def reward_from_rollout(prompts, completions, **kwargs) -> list[float]:
-    """TRL-compatible reward: reads `trajectories` extra field forwarded by the rollout.
-
-    TRL calls reward funcs as `reward_func(prompts=..., completions=..., **reward_kwargs)`
-    where reward_kwargs include any extra fields produced by rollout_func, repeated
-    per-completion. We expect `trajectories` to be a list of EpisodeTrajectory aligned
-    with `completions`.
-    """
+    """TRL-compatible reward: reads `trajectories` extra field forwarded by the rollout."""
     trajectories = kwargs.get("trajectories")
     if trajectories is None:
-        # Fallback: no episode info available (e.g. non-rollout_func path); reward zero.
         return [0.0 for _ in completions]
     return [
         aggregate_episode_reward(trajectory.rewards, method="sum")
@@ -112,72 +120,7 @@ def reward_from_rollout(prompts, completions, **kwargs) -> list[float]:
     ]
 
 
-def make_rollout_func(llm_client, env_client, max_steps: int, tokenizer):
-    """Build a TRL >=0.25 RolloutFunc that runs full env episodes per generation.
-
-    Contract (TRL v0.25): `(prompts, args, processing_class) -> dict` with at minimum
-    `prompt_ids`, `completion_ids`, `logprobs`, plus any per-completion extra fields
-    (forwarded as kwargs to reward functions).
-
-    For each prompt in the group, we run one independent env episode using the
-    current policy. We stitch together the per-step model outputs into a single
-    "completion" string the trainer treats as the sample. `trajectories` is the
-    extra field carrying per-episode reward info.
-    """
-    pad_id = tokenizer.pad_token_id or tokenizer.eos_token_id
-
-    def rollout_func(prompts, trainer):
-        processing_class = trainer.processing_class
-        prompt_ids_list: list[list[int]] = []
-        completion_ids_list: list[list[int]] = []
-        logprobs_list: list[list[float]] = []
-        trajectories: list[EpisodeTrajectory] = []
-
-        for prompt in prompts:
-            # Trainer passes prompts as already-templated strings (TRL applies chat
-            # template before calling rollout_func when prompts are conversational).
-            task_name = _extract_task_name(prompt)
-            episode = run_episode(
-                llm_client=llm_client,
-                env_client=env_client,
-                task_name=task_name,
-                max_steps=max_steps,
-            )
-            trajectories.append(episode)
-
-            # Encode prompt and a stitched completion for TRL bookkeeping.
-            stitched_completion = _stitch_completion(episode)
-            prompt_token_ids = processing_class(
-                prompt, add_special_tokens=False
-            )["input_ids"]
-            completion_token_ids = processing_class(
-                stitched_completion, add_special_tokens=False
-            )["input_ids"]
-            if not completion_token_ids:
-                completion_token_ids = [pad_id]
-            prompt_ids_list.append(list(prompt_token_ids))
-            completion_ids_list.append(list(completion_token_ids))
-            # TRL accepts `logprobs=None` per-sequence on the non-vLLM tokens path,
-            # but the rollout contract requires the field present. Use a zero
-            # placeholder per token; TIS correction is bypassed when zeros are sent.
-            logprobs_list.append([0.0] * len(completion_token_ids))
-
-        return {
-            "prompt_ids": prompt_ids_list,
-            "completion_ids": completion_ids_list,
-            "logprobs": logprobs_list,
-            "trajectories": trajectories,
-        }
-
-    return rollout_func
-
-
 def _extract_task_name(prompt: str) -> str:
-    """Recover the task name from a formatted Red prompt.
-
-    `build_red_prompt` always emits a `TASK: <name>` line; this is the most
-    robust hook back to the env without changing the dataset shape.
-    """
     for line in prompt.splitlines():
         stripped = line.strip()
         if stripped.startswith("TASK:"):
@@ -185,16 +128,159 @@ def _extract_task_name(prompt: str) -> str:
     raise ValueError("rollout prompt missing required 'TASK:' line")
 
 
-def _stitch_completion(episode: EpisodeTrajectory) -> str:
-    """Join per-step model commands into a single completion string for TRL."""
-    if not episode.steps:
-        return ""
-    return "\n".join(
-        f'{{"command":{step.command!r}}}' for step in episode.steps
+def _templated_user_turn(tokenizer, content: str, add_generation_prompt: bool) -> str:
+    """Render a single-user-turn chat-template string."""
+    return tokenizer.apply_chat_template(
+        [{"role": "user", "content": content}],
+        tokenize=False,
+        add_generation_prompt=add_generation_prompt,
     )
 
 
-def build_trainer(model, tokenizer, dataset, reward_funcs, rollout_func, settings: dict):
+def _templated_user_continuation(tokenizer, content: str) -> str:
+    """Render a follow-up user message + assistant generation prompt only.
+
+    Returns the segment to APPEND after a previously-generated assistant
+    response, i.e. tokens for `<user>{content}</user><assistant>` without
+    re-emitting any system header.
+    """
+    return tokenizer.apply_chat_template(
+        [{"role": "user", "content": content}],
+        tokenize=False,
+        add_generation_prompt=True,
+    )
+
+
+def make_rollout_func(env_client, max_steps: int, tokenizer):
+    """Build a TRL >=1.2 RolloutFunc that runs multi-turn env episodes via vLLM.
+
+    Contract (TRL 1.2): `(prompts, trainer) -> dict` with `prompt_ids`,
+    `completion_ids`, `logprobs`. Extra fields are forwarded as reward kwargs.
+
+    For each prompt, we run one episode where every model turn is sampled by
+    `trainer.vllm_generation`. Sampled tokens contribute to the loss; env
+    feedback tokens are inserted between turns and zero-masked via `env_mask`.
+    """
+    pad_id = tokenizer.pad_token_id or tokenizer.eos_token_id
+
+    def rollout_func(prompts, trainer):
+        vllm = trainer.vllm_generation
+
+        prompt_ids_out: list[list[int]] = []
+        completion_ids_out: list[list[int]] = []
+        logprobs_out: list[list[list[float | None]]] = []
+        env_mask_out: list[list[int]] = []
+        trajectories: list[EpisodeTrajectory] = []
+
+        for prompt_text in prompts:
+            task_name = _extract_task_name(prompt_text)
+            observation = env_client.reset(task_name)
+            history: list[dict[str, object]] = []
+
+            initial_user_text = build_red_prompt(observation, task_name, 1, history)
+            templated = _templated_user_turn(
+                tokenizer, initial_user_text, add_generation_prompt=True
+            )
+            prompt_token_ids = tokenizer(templated, add_special_tokens=False)["input_ids"]
+            prompt_ids_out.append(list(prompt_token_ids))
+
+            completion_token_ids: list[int] = []
+            completion_logprobs: list[list[float | None]] = []
+            env_mask: list[int] = []
+
+            steps: list[RolloutStep] = []
+            rewards: list[float] = []
+            current_input_ids: list[int] = list(prompt_token_ids)
+
+            for step_num in range(1, max_steps + 1):
+                _, gen_completion_ids, gen_logprobs, _ = vllm.generate(
+                    prompts=[current_input_ids],
+                    images=None,
+                    num_generations=1,
+                )
+                turn_completion_ids: list[int] = list(gen_completion_ids[0])
+                turn_logprobs: list[list[float | None]] = list(gen_logprobs[0])
+
+                completion_token_ids.extend(turn_completion_ids)
+                completion_logprobs.extend(turn_logprobs)
+                env_mask.extend([1] * len(turn_completion_ids))
+
+                raw_completion = tokenizer.decode(
+                    turn_completion_ids, skip_special_tokens=True
+                )
+                parse_error: str | None = None
+                try:
+                    command = parse_model_command(raw_completion)
+                except ActionParseError as exc:
+                    parse_error = str(exc)
+                    command = NO_COMMAND_PROVIDED
+
+                result = env_client.step(command)
+                info = dict(result.info or {})
+                if parse_error is not None:
+                    info["parse_error"] = parse_error
+
+                steps.append(
+                    RolloutStep(
+                        step_num=step_num,
+                        prompt=initial_user_text if step_num == 1 else "<continuation>",
+                        raw_completion=raw_completion,
+                        command=command,
+                        reward=result.reward,
+                        done=result.done,
+                        info=info,
+                    )
+                )
+                rewards.append(result.reward)
+                history.append(
+                    {
+                        "step": step_num,
+                        "command": command,
+                        "output": result.observation.command_output,
+                        "error": info.get("error") or parse_error,
+                    }
+                )
+                observation = result.observation
+
+                if result.done or step_num == max_steps:
+                    break
+
+                next_user_text = build_red_prompt(
+                    observation, task_name, step_num + 1, history
+                )
+                feedback_segment = _templated_user_continuation(tokenizer, next_user_text)
+                feedback_ids = tokenizer(feedback_segment, add_special_tokens=False)[
+                    "input_ids"
+                ]
+                completion_token_ids.extend(feedback_ids)
+                completion_logprobs.extend([[0.0]] * len(feedback_ids))
+                env_mask.extend([0] * len(feedback_ids))
+                current_input_ids = list(prompt_token_ids) + completion_token_ids
+
+            if not completion_token_ids:
+                completion_token_ids = [pad_id]
+                completion_logprobs = [[0.0]]
+                env_mask = [0]
+
+            completion_ids_out.append(completion_token_ids)
+            logprobs_out.append(completion_logprobs)
+            env_mask_out.append(env_mask)
+            trajectories.append(
+                EpisodeTrajectory(task_name=task_name, steps=steps, rewards=rewards)
+            )
+
+        return {
+            "prompt_ids": prompt_ids_out,
+            "completion_ids": completion_ids_out,
+            "logprobs": logprobs_out,
+            "env_mask": env_mask_out,
+            "trajectories": trajectories,
+        }
+
+    return rollout_func
+
+
+def build_trainer(model, tokenizer, dataset, reward_funcs, rollout_func, settings: dict, peft_config=None):
     from trl import GRPOTrainer
 
     return GRPOTrainer(
@@ -204,4 +290,5 @@ def build_trainer(model, tokenizer, dataset, reward_funcs, rollout_func, setting
         reward_funcs=reward_funcs,
         rollout_func=rollout_func,
         args=build_grpo_config(settings),
+        peft_config=peft_config,
     )

@@ -1,6 +1,9 @@
-"""Load the base model with transformers + peft (no unsloth).
+"""Load the base model + tokenizer + LoRA config (no unsloth).
 
-Returns a LoRA-wrapped causal LM ready to plug into TRL's GRPOTrainer.
+TRL's GRPOTrainer must own the PEFT wrapping so it can:
+  - register a `ref` adapter for the reference model
+  - sync LoRA deltas into the colocated vLLM weights via `vllm_generation.sync_weights()`
+Pass the LoraConfig through `peft_config=`; do NOT pre-wrap with `get_peft_model`.
 """
 
 from __future__ import annotations
@@ -8,7 +11,7 @@ from __future__ import annotations
 
 def load_training_model(settings: dict):
     import torch
-    from peft import LoraConfig, get_peft_model
+    from peft import LoraConfig
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
     model_cfg = settings["model"]
@@ -36,7 +39,7 @@ def load_training_model(settings: dict):
     model = AutoModelForCausalLM.from_pretrained(base_model, **load_kwargs)
     model.config.use_cache = False
 
-    lora = LoraConfig(
+    lora_config = LoraConfig(
         r=int(model_cfg["lora_rank"]),
         lora_alpha=int(model_cfg["lora_alpha"]),
         lora_dropout=0.0,
@@ -44,5 +47,4 @@ def load_training_model(settings: dict):
         task_type="CAUSAL_LM",
         target_modules=list(model_cfg["target_modules"]),
     )
-    model = get_peft_model(model, lora)
-    return model, tokenizer
+    return model, tokenizer, lora_config
