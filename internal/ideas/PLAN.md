@@ -21,42 +21,53 @@ After training, the 8B model discovers attack strategies that even Opus misses.
 ## 📋 THE MASTER CHECKLIST
 
 ### Phase 0: Setup & Port (Before Hackathon)
-- [ ] Initialize OpenEnv project structure (`openenv init`)
-- [ ] Port R1 service mesh to R2 repo
+
+**Round 1 reference project:** `/Users/virajshah/Documents/openenv-distributed-systems-debugging`
+*(R1 was scaffolded with OpenEnv CLI the same way — use it as the porting source for services, process manager, metrics poller, graders, and fault injector)*
+
+- [ ] Install/update OpenEnv CLI to **latest version**
+  ```bash
+  pip install --upgrade openenv-core
+  ```
+- [ ] Scaffold R2 project using OpenEnv CLI
+  ```bash
+  cd /Users/virajshah/Documents/openenv
+  openenv init wargames
+  ```
+  This creates the baseline structure: `server/`, `client/`, `openenv.yaml`, `Dockerfile`, etc.
+- [ ] Verify scaffolded project runs: `openenv serve` → health check passes
+- [ ] Port R1 service mesh from `/Users/virajshah/Documents/openenv-distributed-systems-debugging/server/` to R2 repo
   - [ ] Gateway (port 3000)
   - [ ] Auth service (port 3001)
   - [ ] Redis (port 6379)
   - [ ] Worker + consumer
   - [ ] SQLite sink
   - [ ] Job generator
-- [ ] Port `process_manager.py` — start/stop/sighup services
-- [ ] Port `metrics_poller.py` — gateway_success_rate, latency, queue_depth, etc.
+- [ ] Port `process_manager.py` (from R1 `server/process_manager.py`)
+- [ ] Port `metrics_poller.py` (from R1 `server/metrics_poller.py`)
 - [ ] Port mesh service code (Node.js services from R1)
 - [ ] Verify all services boot and respond on local machine
 - [ ] Create `Dockerfile` + `start.sh` for containerized deployment
 - [ ] Test Docker build locally — everything boots in container
-- [ ] Create `openenv.yaml` manifest
+- [ ] Validate `openenv.yaml` manifest has correct metadata
 
-### Phase 1: Red Agent Toolset 🔴
+### Phase 1: Red Agent — Raw Bash Access 🔴
 *"sudo give me your lunch money"*
 
-- [ ] **Recon tools** (intelligence gathering)
-  - [ ] `scan_services` — discover running services, ports, configs
-  - [ ] `read_logs` — grep service logs for intel (reuse from R1)
-  - [ ] `inspect_redis` — KEYS, LLEN, GET, EXISTS (reuse from R1)
-  - [ ] `inspect_config` — read service configs (reuse from R1)
-- [ ] **Attack tools** (the fun part 💀)
-  - [ ] `inject_poison` — LPUSH malformed messages to job_queue (from R1's `inject_byzantine_queue_fault`)
-  - [ ] `tamper_config` — corrupt config files + SIGHUP reload (from R1's timeout/backpressure faults)
-  - [ ] `plant_lock` — SET stale distributed locks (from R1's `inject_distributed_lock_starvation`)
-  - [ ] `corrupt_registry` — modify service registry entries (from R1's `inject_registry_corruption`)
-  - [ ] `block_route` — add blocked routes in gateway (from R1's `inject_route_partition`)
-  - [ ] `flood_requests` — spam gateway with requests (NEW — needs implementation)
-  - [ ] `kill_service` — kill a specific service process (NEW — simple)
-- [ ] **Stealth tools** (because real hackers cover their tracks)
-  - [ ] `cover_tracks` — truncate/clear service log files (NEW)
-- [ ] Expose all tools as MCP tools via OpenEnv
-- [ ] Validate: each tool works in isolation, produces measurable effect on metrics
+**No MCP tools.** Same as R1 — the agent gets raw shell access via `subprocess.run(command, shell=True)`. It can type ANY bash command and gets stdout/stderr back. This is more flexible and more realistic (real pen testers use bash, not predefined buttons).
+
+**What the agent CAN do** (anything a shell can do):
+- Recon: `cat /mesh/gateway/config.json`, `redis-cli KEYS '*'`, `tail -20 /tmp/worker.log`, `ps aux`, `curl localhost:3000/health`
+- Attack: `redis-cli LPUSH job_queue '{broken'`, `echo '{"delay_ms": 1500}' > /mesh/auth/config.json`, `redis-cli SET LOCK:job_processor dead-pid`, `kill -9 $(pgrep worker)`
+- Stealth: `truncate -s 0 /tmp/worker.log`, `redis-cli DEL attack_trace_key`
+
+**What we need to ensure:**
+- [ ] All R1 binaries available in Docker container: `redis-cli`, `curl`, `jq`, `ps`, `grep`, `tail`, `cat`, `kill`, `pgrep`
+- [ ] Mesh config files are writable by the agent process
+- [ ] Service logs are at known paths (`/tmp/gateway.log`, `/tmp/auth.log`, etc.)
+- [ ] `_blocked_command()` filter updated — R1 blocks destructive commands like `rm -rf /` and `pkill uvicorn`. For Red, we RELAX some blocks (agent should be allowed to kill services) but still block env-destroying commands
+- [ ] Agent's system prompt describes available attack surfaces (service paths, Redis keys, config files, ports)
+- [ ] Validate: manually run each attack command, confirm metrics change
 
 ### Phase 2: Blue Defender (Rule-Based) 🔵
 *"I'm not locked in here with you. You're locked in here with me." — Blue, probably*
@@ -71,7 +82,7 @@ After training, the 8B model discovers attack strategies that even Opus misses.
 - [ ] **Level 3 — Senior SRE**
   - [ ] Everything from L2 + queue sanitizer (remove malformed messages)
   - [ ] + Stale lock cleaner (delete locks older than 30s)
-- [ ] **Level 4 — The BOFH** *(Bastard Operator From Hell)*
+- [ ] **Level 4 — "YOU SHALL NOT PASS"** 🧙
   - [ ] Everything from L3 + event-triggered responses (metric drop → immediate check)
   - [ ] + Service registry validation
   - [ ] + Route table validation
@@ -121,7 +132,7 @@ After training, the 8B model discovers attack strategies that even Opus misses.
   - [ ] Run 2: Level 0-2 curriculum, 200 episodes — ~$10
   - [ ] Run 3: Full curriculum (L0-L4), 200 episodes — ~$10
   - [ ] Reserve: ~$38 for reruns, experiments, inference testing
-- [ ] Logging: W&B or TensorBoard for reward curves
+- [ ] Logging: W&B for reward curves
 - [ ] Save checkpoints every 50 episodes
 - [ ] Test trained model: run inference on Level 0 → should crush it
 - [ ] Test trained model: run inference on Level 4 → should be better than untrained
@@ -199,7 +210,7 @@ After training, the 8B model discovers attack strategies that even Opus misses.
 - Task names: `level_0` → "tutorial_island", `level_4` → "dark_souls"
 - Error message when all services go down: "All your base are belong to us"
 - README badge: `🏆 Trained attacker beats Opus at breaking things`
-- Blue defender Level 4 codename: "The BOFH" (Bastard Operator From Hell — classic sysadmin meme)
+- Blue defender Level 4 codename: "YOU SHALL NOT PASS" 🧙 (Gandalf-level defense)
 - Log message when Blue detects an attack: "Nice try, script kiddie 🙄"
 - Log message when Red succeeds: "I'm in. 😎" (CSI reference)
 - Config restore message: "Config was tampered with. Restoring from backup. Again. 🙄"
