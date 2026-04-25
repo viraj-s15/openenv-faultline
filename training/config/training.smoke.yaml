@@ -28,7 +28,8 @@ trainer:
   beta: 0.001
   use_vllm: true
   vllm_mode: colocate
-  vllm_gpu_memory_utilization: 0.30
+  vllm_gpu_memory_utilization: 0.55
+  vllm_max_model_length: 8192
   gradient_checkpointing: true
   max_steps: 5
   save_steps: 5
@@ -39,5 +40,5 @@ wandb:
   entity: null
   run_name: smoke-a10g-large
 rollout:
-  max_steps_per_episode: 2
+  max_steps_per_episode: 3
   reward_aggregation: sum
