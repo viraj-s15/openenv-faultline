@@ -2,7 +2,7 @@
 
 WarGames is an OpenEnv environment for teaching agents to interact with a live distributed system through bash commands.
 
-Phase 0 ports the Round 1 service mesh into a root-deployable project. Phase 1 gives the Red agent raw bash access through the `command` action field.
+Phase 0 ports the Round 1 service mesh into a root-deployable project. Phase 1 gives the Red agent raw bash access through the `command` action field. Phase 2 adds scripted Blue training rules and one prompted Blue LLM showdown mode.
 
 - Gateway on port `3000`
 - Auth on port `3001`
@@ -42,6 +42,60 @@ The Red agent sends a single raw bash command:
 - `timed_out`
 - `command`
 - `duration_ms`
+- `blue_actions`
+
+## Phase 2 Blue Defense
+
+Scripted Blue levels are only for Red training curriculum:
+
+- `phase-2-blue-l0`: no Blue actions.
+- `phase-2-blue-l1`: restart stopped mesh services.
+- `phase-2-blue-l2`: restore baseline mesh configs and send SIGHUP.
+- `phase-2-blue-l3`: sanitize malformed Redis queue entries and clear stale worker locks.
+- `phase-2-blue-l4`: trigger rollback metadata when success rate, latency, or queue depth crosses thresholds.
+
+The Blue LLM has one evaluation mode:
+
+- `phase-2-blue-llm-showdown`: one prompted incident commander tick runs after each Red action.
+
+Use a curriculum task by passing `task_name` to reset:
+
+```bash
+curl -X POST "http://localhost:8000/reset?task_name=phase-2-blue-l4"
+curl -X POST "http://localhost:8000/reset?task_name=phase-2-blue-llm-showdown"
+```
+
+The Blue LLM provider uses OpenAI-compatible environment variables. Defaults match the Round 1 inference semantics:
+
+```bash
+export API_BASE_URL="https://router.huggingface.co/v1"
+export MODEL_NAME="Qwen/Qwen2.5-72B-Instruct"
+export HF_TOKEN="..."
+```
+
+For OpenRouter, use the same code path:
+
+```bash
+export API_BASE_URL="https://openrouter.ai/api/v1"
+export MODEL_NAME="qwen/qwen-2.5-72b-instruct"
+export API_KEY="..."
+```
+
+Blue-specific overrides are available with `BLUE_API_BASE_URL`, `BLUE_MODEL_NAME`, `BLUE_API_KEY`, `BLUE_TEMPERATURE`, and `BLUE_MAX_COMPLETION_TOKENS`.
+
+Run Red inference with:
+
+```bash
+MODEL_NAME="Qwen/Qwen2.5-72B-Instruct" HF_TOKEN="..." python inference.py
+```
+
+Set `TASKS_CSV` to choose tasks, for example:
+
+```bash
+TASKS_CSV="phase-2-blue-l4,phase-2-blue-llm-showdown" python inference.py
+```
+
+`iptables` and `systemctl` are not assumed to work in the container runtime. Blue uses mesh-native actions by default: process restarts, config restore plus SIGHUP, Redis cleanup, log inspection, and metrics-triggered rollback.
 
 ## Phase 1 Example Commands
 

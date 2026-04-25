@@ -1592,6 +1592,7 @@ source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
     { name = "httpx" },
+    { name = "openai" },
     { name = "openenv-core", extra = ["core"] },
     { name = "pydantic" },
     { name = "uvicorn", extra = ["standard"] },
@@ -1607,6 +1608,7 @@ dev = [
 requires-dist = [
     { name = "fastapi", specifier = ">=0.136.1" },
     { name = "httpx", specifier = ">=0.28.1" },
+    { name = "openai", specifier = ">=2.32.0" },
     { name = "openenv-core", extras = ["core"], specifier = ">=0.2.3" },
     { name = "pydantic", specifier = ">=2.13.3" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.46.0" },

@@ -38,3 +38,27 @@ tasks:
     description: Give the Red agent raw bash access to recon, attack, and stealth against the live mesh.
     difficulty: medium
     max_steps: 10
+  - name: phase-2-blue-l0
+    description: Train Red against a sitting-duck scripted Blue defender with no actions.
+    difficulty: easy
+    max_steps: 10
+  - name: phase-2-blue-l1
+    description: Train Red against scripted Blue service restart defense.
+    difficulty: medium
+    max_steps: 10
+  - name: phase-2-blue-l2
+    description: Train Red against scripted Blue restarts plus config watchdog restore.
+    difficulty: medium
+    max_steps: 10
+  - name: phase-2-blue-l3
+    description: Train Red against scripted Blue queue sanitizer and stale lock cleanup.
+    difficulty: hard
+    max_steps: 10
+  - name: phase-2-blue-l4
+    description: Train Red against scripted Blue metric-triggered rollback.
+    difficulty: hard
+    max_steps: 10
+  - name: phase-2-blue-llm-showdown
+    description: Evaluate Red against the single hardest prompted Blue LLM incident commander.
+    difficulty: hard
+    max_steps: 10

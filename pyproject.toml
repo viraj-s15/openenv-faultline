@@ -11,6 +11,7 @@ requires-python = ">=3.10"
 dependencies = [
   "fastapi>=0.136.1",
   "httpx>=0.28.1",
+  "openai>=2.32.0",
   "openenv-core[core]>=0.2.3",
   "pydantic>=2.13.3",
   "uvicorn[standard]>=0.46.0",
@@ -21,7 +22,7 @@ server = "wargames_env.server.app:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 
 [tool.black]
 target-version = ["py312"]

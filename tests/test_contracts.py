@@ -102,6 +102,7 @@ def test_client_serializes_action_and_parses_step_result():
         },
         "reward": 0.5,
         "done": False,
+        "info": {"blue_actions": [{"kind": "restart"}], "exit_code": 0},
     }
 
     assert client._step_payload(WarGamesAction(command="date")) == {"command": "date"}
@@ -111,6 +112,8 @@ def test_client_serializes_action_and_parses_step_result():
     assert result.observation.command_output == "ok"
     assert result.observation.metrics.queue_depth == 3
     assert result.reward == 0.5
+    assert result.info["blue_actions"] == [{"kind": "restart"}]
+    assert result.info["exit_code"] == 0
 
 
 def test_client_parses_state_payload():

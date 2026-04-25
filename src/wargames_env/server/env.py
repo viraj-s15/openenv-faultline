@@ -6,6 +6,8 @@ from pathlib import Path
 from uuid import uuid4
 
 from wargames_env.models import StepResult, WarGamesAction, WarGamesObservation
+from wargames_env.server.blue_defender import BlueDefender, select_blue_defender
+from wargames_env.server.config_baseline import ConfigBaseline
 from wargames_env.server.metrics_poller import MetricsPoller
 from wargames_env.server.process_manager import ProcessManager
 
@@ -36,6 +38,7 @@ class WarGamesEnv:
         self._metrics_poller = MetricsPoller(poll_interval_s=2.0)
         self.max_steps = 10
         self.last_exit_code = 0
+        self._blue_defender = BlueDefender(select_blue_defender(None))
 
     def _write_default_registry(self) -> None:
         self.mesh_root.mkdir(parents=True, exist_ok=True)
@@ -130,12 +133,21 @@ class WarGamesEnv:
     ) -> WarGamesObservation:
         self.episode_id = str(uuid4())
         self.step_count = 0
+        self._blue_defender = BlueDefender(select_blue_defender(task_name))
+        Path("/tmp/current_task").write_text(
+            self._blue_defender.selection.task_name, encoding="utf-8"
+        )
         self._write_default_registry()
+        self._blue_defender.config_baseline = ConfigBaseline.capture(self.mesh_root)
         self._reset_runtime_files()
         self._redis_flush()
         self._process_manager.restart_all()
         if not self._process_manager.wait_healthy(timeout_s=30):
             raise RuntimeError("Services failed health checks after reset")
+        self._metrics_poller.poll_once()
+        self._blue_defender.baseline_metrics = (
+            self._metrics_poller.get_current_metrics()
+        )
         return self._observation("WarGames mesh ready.", done=False, reward=0.0)
 
     def step(
@@ -148,6 +160,14 @@ class WarGamesEnv:
         timeout = timeout_s or 10
         command_result = self._run_red_command(action.command, timeout_s=timeout)
         self.last_exit_code = command_result.exit_code
+        blue_actions = self._blue_defender.tick(
+            red_command=command_result.command,
+            red_exit_code=command_result.exit_code,
+            process_manager=self._process_manager,
+            metrics_poller=self._metrics_poller,
+            project_root=self.project_root,
+            mesh_root=self.mesh_root,
+        )
         done = self.step_count >= self.max_steps
         observation = self._observation(command_result.output, done=done, reward=0.0)
         return StepResult(
@@ -159,6 +179,9 @@ class WarGamesEnv:
                 "timed_out": command_result.timed_out,
                 "command": command_result.command,
                 "duration_ms": command_result.duration_ms,
+                "blue_actions": [
+                    blue_action.model_dump() for blue_action in blue_actions
+                ],
             },
         )
 
@@ -169,6 +192,8 @@ class WarGamesEnv:
             "episode_id": self.episode_id,
             "step_count": self.step_count,
             "max_steps": self.max_steps,
+            "blue_mode": self._blue_defender.mode.value,
+            "blue_level": int(self._blue_defender.level),
             "metrics": metrics.model_dump(),
             "process_status": self._process_manager.get_status(),
         }
