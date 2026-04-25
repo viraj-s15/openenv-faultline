@@ -100,6 +100,41 @@ def main() -> None:
 
     trainer.train()
 
+    if os.getenv("PUBLISH_ON_FINISH", "true").lower() in {"1", "true", "yes"}:
+        _publish_artifacts(settings)
+
+
+def _publish_artifacts(settings: dict) -> None:
+    """Push adapter (and optionally merged model) to HF Hub after training."""
+    from pathlib import Path as _Path
+
+    from training.publish.push_adapter import push_adapter
+
+    output_dir = _Path(settings["trainer"]["output_dir"])
+    if not output_dir.exists():
+        print(f"[publish] skip: {output_dir} does not exist", flush=True)
+        return
+
+    print(f"[publish] pushing adapter from {output_dir}", flush=True)
+    try:
+        push_adapter(folder_path=output_dir, log_to_wandb=False)
+    except Exception as exc:
+        print(f"[publish] adapter push failed: {exc}", flush=True)
+        return
+
+    if os.getenv("PUBLISH_MERGED", "false").lower() in {"1", "true", "yes"}:
+        from training.publish.push_merged import push_merged_model
+
+        print("[publish] merging adapter into base and pushing", flush=True)
+        try:
+            push_merged_model(
+                adapter_path=output_dir,
+                output_dir="training/artifacts/merged",
+                log_to_wandb=False,
+            )
+        except Exception as exc:
+            print(f"[publish] merged push failed: {exc}", flush=True)
+
 
 if __name__ == "__main__":
     main()

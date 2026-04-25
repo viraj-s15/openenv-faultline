@@ -16,8 +16,8 @@ def test_training_base_config_declares_env_and_model_defaults():
 def test_publish_config_declares_adapter_and_merged_targets():
     payload = yaml.safe_load(Path("training/config/publish.yaml").read_text())
 
-    assert payload["adapter_repo_id"].endswith("wargames-red-lora")
-    assert payload["merged_repo_id"].endswith("wargames-red-merged")
+    assert payload["adapter_repo_id"].endswith("-lora")
+    assert payload["merged_repo_id"] and "/" in payload["merged_repo_id"]
 
 
 def test_space_config_declares_docker_sdk_and_app_port():

@@ -1,4 +1,4 @@
-adapter_repo_id: your-org/wargames-red-lora
-merged_repo_id: your-org/wargames-red-merged
+adapter_repo_id: Veer15/wargames-red-qwen3-8b-lora
+merged_repo_id: Veer15/wargames-red-qwen3-8b
 private: false
 license: mit
