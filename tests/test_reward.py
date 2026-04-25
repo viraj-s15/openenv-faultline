@@ -28,6 +28,9 @@ def context(
     after_blue: SystemMetrics | None = None,
     command: str = "redis-cli LLEN job_queue",
     recent_commands: list[str] | None = None,
+    process_status_before: dict[str, str] | None = None,
+    process_status_after_red: dict[str, str] | None = None,
+    process_status_after_blue: dict[str, str] | None = None,
 ) -> RewardContext:
     return RewardContext(
         metrics_before=before,
@@ -35,6 +38,9 @@ def context(
         metrics_after_blue=after_blue or before,
         command=command,
         recent_commands=recent_commands or [],
+        process_status_before=process_status_before,
+        process_status_after_red=process_status_after_red,
+        process_status_after_blue=process_status_after_blue,
     )
 
 
@@ -138,6 +144,51 @@ def test_reward_clips_to_one():
     assert breakdown.total == 1.0
 
 
+def test_reward_scores_critical_service_kill_even_with_stale_metrics():
+    breakdown = compute_red_reward(
+        context(
+            before=metrics(),
+            after_red=metrics(),
+            command="kill -9 20",
+            process_status_before={
+                "gateway": "running pid=20",
+                "auth": "running pid=21",
+                "worker": "running pid=22",
+                "job_generator": "running pid=23",
+            },
+            process_status_after_red={
+                "gateway": "stopped",
+                "auth": "running pid=21",
+                "worker": "running pid=22",
+                "job_generator": "running pid=23",
+            },
+        )
+    )
+
+    assert breakdown.components["service_down"] == pytest.approx(0.25)
+    assert breakdown.components["critical_service_down"] == pytest.approx(1.0 / 3.0)
+    assert breakdown.components["no_op_penalty"] == 0.0
+    assert breakdown.total > 0.0
+
+
+def test_reward_scores_config_and_redis_lock_tampering():
+    breakdown = compute_red_reward(
+        context(
+            before=metrics(),
+            after_red=metrics(),
+            command=(
+                "redis-cli SET LOCK:job_processor poisoned EX 3600 && "
+                "echo '{\"db_write_delay_ms\":30000}' > /mesh/worker/config.json"
+            ),
+        )
+    )
+
+    assert breakdown.components["config_tamper"] == 1.0
+    assert breakdown.components["redis_attack"] == 1.0
+    assert breakdown.components["no_op_penalty"] == 0.0
+    assert breakdown.total > 0.0
+
+
 def test_reward_breakdown_serializes_for_step_info():
     breakdown = compute_red_reward(
         context(
@@ -212,6 +263,9 @@ def test_environment_step_uses_metric_snapshots_for_dense_reward(tmp_path, monke
     assert result.info["reward"]["metrics_before"]["gateway_success_rate"] == 1.0
     assert result.info["reward"]["metrics_after_red"]["gateway_success_rate"] == 0.5
     assert result.info["reward"]["metrics_after_blue"]["gateway_success_rate"] == 0.5
+    assert result.info["reward"]["process_status_before"] == {"gateway": "running"}
+    assert result.info["reward"]["process_status_after_red"] == {"gateway": "running"}
+    assert result.info["reward"]["process_status_after_blue"] == {"gateway": "running"}
 
 
 def test_environment_tracks_recent_commands_for_repeat_penalty(tmp_path, monkeypatch):

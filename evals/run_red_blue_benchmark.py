@@ -187,7 +187,7 @@ def reset_redis() -> None:
 def episode_score(rewards: list[float]) -> float:
     if not rewards:
         return 0.01
-    return max(0.01, min(0.99, float(rewards[-1])))
+    return max(0.01, min(0.99, max(float(reward) for reward in rewards)))
 
 
 def flatten_blue_actions(actions: list[dict[str, Any]]) -> tuple[str, str, str, str]:

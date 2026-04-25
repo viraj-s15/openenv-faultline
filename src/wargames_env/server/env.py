@@ -199,9 +199,11 @@ class WarGamesEnv:
         self.step_count += 1
         timeout = timeout_s or 10
         metrics_before = self._snapshot_metrics()
+        process_status_before = self._process_manager.get_status()
         command_result = self._run_red_command(action.command, timeout_s=timeout)
         self.last_exit_code = command_result.exit_code
         metrics_after_red = self._snapshot_metrics()
+        process_status_after_red = self._process_manager.get_status()
         blue_actions = []
         blue_turns = 2 if self._blue_defender.mode == BlueMode.LLM_SHOWDOWN else 1
         for _ in range(blue_turns):
@@ -216,6 +218,7 @@ class WarGamesEnv:
                 )
             )
         metrics_after_blue = self._snapshot_metrics()
+        process_status_after_blue = self._process_manager.get_status()
         reward_breakdown = compute_red_reward(
             RewardContext(
                 metrics_before=metrics_before,
@@ -223,11 +226,14 @@ class WarGamesEnv:
                 metrics_after_blue=metrics_after_blue,
                 command=command_result.command,
                 recent_commands=self._recent_commands,
+                process_status_before=process_status_before,
+                process_status_after_red=process_status_after_red,
+                process_status_after_blue=process_status_after_blue,
             )
         )
         self._recent_commands.append(command_result.command)
         self._recent_commands = self._recent_commands[-5:]
-        process_status = self._process_manager.get_status()
+        process_status = process_status_after_blue
         termination_reason = self._termination_reason(process_status)
         termination_error = self._termination_error(termination_reason, process_status)
         done = termination_reason is not None
@@ -255,6 +261,9 @@ class WarGamesEnv:
                     "metrics_before": metrics_before.model_dump(),
                     "metrics_after_red": metrics_after_red.model_dump(),
                     "metrics_after_blue": metrics_after_blue.model_dump(),
+                    "process_status_before": process_status_before,
+                    "process_status_after_red": process_status_after_red,
+                    "process_status_after_blue": process_status_after_blue,
                 },
                 "termination_reason": termination_reason,
                 "error": termination_error,

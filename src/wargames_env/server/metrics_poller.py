@@ -70,7 +70,10 @@ class MetricsPoller(threading.Thread):
         try:
             snapshot.update(self._poll_gateway())
         except Exception:
-            pass
+            snapshot["gateway_success_rate"] = 0.0
+            snapshot["gateway_p99_latency_ms"] = max(
+                float(snapshot["gateway_p99_latency_ms"]), 5000.0
+            )
 
         snapshot["queue_depth"] = self._poll_queue_depth()
         snapshot["worker_restart_count"] = self._read_counter(

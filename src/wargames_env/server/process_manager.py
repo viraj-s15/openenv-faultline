@@ -43,9 +43,18 @@ class ProcessManager:
     def _is_pid_alive(pid: int) -> bool:
         try:
             os.kill(pid, 0)
-            return True
         except OSError:
             return False
+        status = subprocess.run(
+            ["ps", "-o", "stat=", "-p", str(pid)],
+            capture_output=True,
+            text=True,
+            timeout=1,
+            check=False,
+        )
+        if status.returncode != 0:
+            return False
+        return "Z" not in status.stdout.strip()
 
     def _read_pid(self, service: str) -> int | None:
         path = self._pid_path(service)

@@ -1,0 +1,2 @@
+task_name,red_model,blue_model,max_steps_cap,actual_steps,success,final_score,max_reward,avg_reward,error,steps_csv,log_path
+phase-2-blue-llm-showdown,meta-llama/llama-3.1-8b-instruct,meta-llama/llama-3.1-8b-instruct,30,21,false,0.0100,0.0000,0.0000,TimeoutExpired: Command 'tail -f /tmp/gateway.log' timed out after 10 seconds,outputs/docker_openrouter_llama31_8b_instruct_20260425_150719/steps.csv,outputs/docker_openrouter_llama31_8b_instruct_20260425_150719/red_vs_blue.log
