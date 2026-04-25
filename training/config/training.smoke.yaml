@@ -2,7 +2,7 @@ env:
   base_url: http://localhost:8000  # overridden by ENV_BASE_URL in the job
   healthcheck_path: /state
 model:
-  base_model: Qwen/Qwen3-8B
+  base_model: Qwen/Qwen3-1.7B
   max_seq_length: 2048
   load_in_4bit: true
   lora_rank: 16
@@ -28,7 +28,7 @@ trainer:
   beta: 0.001
   use_vllm: true
   vllm_mode: colocate
-  vllm_gpu_memory_utilization: 0.55
+  vllm_gpu_memory_utilization: 0.45
   max_steps: 5
   save_steps: 5
   logging_steps: 1
