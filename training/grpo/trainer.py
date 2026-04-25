@@ -60,10 +60,11 @@ class LocalGenerationClient:
     def generate(self, prompt: str) -> str:
         messages = [{"role": "user", "content": prompt}]
         templated = self.tokenizer.apply_chat_template(
-            messages,
-            tokenize=False,
-            add_generation_prompt=True,
-        )
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=True,
+                    enable_thinking=False,
+                )
         inputs = self.tokenizer(templated, return_tensors="pt").to(self.model.device)
         do_sample = self.temperature > 0.0
         gen_kwargs: dict[str, Any] = {
@@ -160,10 +161,11 @@ def _extract_task_name(prompt: str) -> str:
 def _templated_user_turn(tokenizer, content: str, add_generation_prompt: bool) -> str:
     """Render a single-user-turn chat-template string."""
     return tokenizer.apply_chat_template(
-        [{"role": "user", "content": content}],
-        tokenize=False,
-        add_generation_prompt=add_generation_prompt,
-    )
+            [{"role": "user", "content": content}],
+            tokenize=False,
+            add_generation_prompt=add_generation_prompt,
+            enable_thinking=False,
+        )
 
 
 def _templated_user_continuation(tokenizer, content: str) -> str:
@@ -174,10 +176,11 @@ def _templated_user_continuation(tokenizer, content: str) -> str:
     re-emitting any system header.
     """
     return tokenizer.apply_chat_template(
-        [{"role": "user", "content": content}],
-        tokenize=False,
-        add_generation_prompt=True,
-    )
+            [{"role": "user", "content": content}],
+            tokenize=False,
+            add_generation_prompt=True,
+            enable_thinking=False,
+        )
 
 
 def make_rollout_func(env_client, max_steps: int, tokenizer):
