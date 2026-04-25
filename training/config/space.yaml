@@ -8,4 +8,4 @@ artifact_mode: adapter
 # Space secrets (Space Settings -> Repository Secrets) which override these
 # values; surface them here so the deployment config is single-sourced.
 model_repo_id: your-org/wargames-red-lora
-base_model_name: Qwen/Qwen3.5-9B
+base_model_name: Qwen/Qwen3-8B

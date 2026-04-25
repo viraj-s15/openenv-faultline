@@ -62,7 +62,7 @@ Controls model, LoRA, and trainer settings:
 | Key | Default | What it does |
 |---|---|---|
 | `env.base_url` | `http://localhost:8000` | WarGames server address |
-| `model.base_model` | `Qwen/Qwen3.5-9B` | Base model to fine-tune |
+| `model.base_model` | `Qwen/Qwen3-8B` | Base model to fine-tune |
 | `model.lora_rank` | 16 | LoRA rank |
 | `model.load_in_4bit` | true | QLoRA for memory efficiency |
 | `trainer.learning_rate` | 5e-6 | GRPO learning rate |

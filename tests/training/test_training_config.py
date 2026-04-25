@@ -9,7 +9,7 @@ def test_training_base_config_declares_env_and_model_defaults():
     payload = yaml.safe_load(Path("training/config/training.base.yaml").read_text())
 
     assert payload["env"]["base_url"] == "http://localhost:8000"
-    assert payload["model"]["base_model"] == "Qwen/Qwen3.5-9B"
+    assert payload["model"]["base_model"] == "Qwen/Qwen3-8B"
     assert payload["trainer"]["algorithm"] == "grpo"
 
 
