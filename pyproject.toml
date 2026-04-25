@@ -22,13 +22,14 @@ server = "wargames_env.server.app:main"
 
 [project.optional-dependencies]
 training = [
+  "accelerate>=1.0",
+  "bitsandbytes>=0.44",
   "huggingface_hub>=0.35.1",
   "peft>=0.17.1",
   "pyyaml>=6.0.2",
   "torch>=2.8.0,<2.9",
-  "transformers>=4.56.1,<5.0",
-  "trl>=0.21.0,<=0.24.0",
-  "unsloth>=2026.4.8",
+  "transformers>=4.56.1",
+  "trl>=0.25.0",
   "vllm>=0.10.0,<0.11",
   "wandb>=0.19.0",
 ]

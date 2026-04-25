@@ -126,24 +126,7 @@ def make_rollout_func(llm_client, env_client, max_steps: int, tokenizer):
     """
     pad_id = tokenizer.pad_token_id or tokenizer.eos_token_id
 
-    def rollout_func(prompts, *extra_args, **kwargs):
-        # TRL v0.25 calls (prompts, args, processing_class).
-        # Unsloth's compiled trainer calls (prompts, trainer_self).
-        # Resolve processing_class from whichever shape we got.
-        processing_class = kwargs.get("processing_class")
-        if processing_class is None:
-            for cand in extra_args:
-                if cand is None:
-                    continue
-                if hasattr(cand, "__call__") and hasattr(cand, "pad_token_id"):
-                    processing_class = cand
-                    break
-                inner = getattr(cand, "processing_class", None)
-                if inner is not None:
-                    processing_class = inner
-                    break
-        if processing_class is None:
-            processing_class = tokenizer
+    def rollout_func(prompts, args, processing_class):
         prompt_ids_list: list[list[int]] = []
         completion_ids_list: list[list[int]] = []
         logprobs_list: list[list[float]] = []
