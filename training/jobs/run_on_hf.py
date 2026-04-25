@@ -20,6 +20,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 REPO_URL = os.environ.get(
@@ -28,6 +29,48 @@ REPO_URL = os.environ.get(
 )
 REPO_REF = os.environ.get("TRAINING_REPO_REF", "main")
 WORKDIR = Path("/tmp/wargames-train")
+
+
+def _wait_for_cuda(max_wait_s: int = 180) -> None:
+    """Block until CUDA reports a usable device.
+
+    HF Jobs occasionally schedules a container before its NVIDIA driver finishes
+    initializing; the first `torch.cuda.is_available()` call then raises
+    `Error 802: system not yet initialized`. We poll the device count via a
+    short subprocess (so each attempt gets a fresh process and re-tries the
+    driver init from scratch) and only proceed once CUDA is healthy.
+    """
+    deadline = time.monotonic() + max_wait_s
+    attempt = 0
+    last_err: str | None = None
+    while time.monotonic() < deadline:
+        attempt += 1
+        probe = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import torch; "
+                    "assert torch.cuda.is_available(), 'no cuda'; "
+                    "n = torch.cuda.device_count(); "
+                    "assert n > 0, f'device_count={n}'; "
+                    "_ = torch.cuda.get_device_name(0); "
+                    "print(f'CUDA ok: {n} device(s), {torch.cuda.get_device_name(0)}')"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if probe.returncode == 0:
+            print(probe.stdout.strip(), flush=True)
+            return
+        last_err = (probe.stderr or probe.stdout).strip().splitlines()[-1] if (probe.stderr or probe.stdout).strip() else "unknown"
+        print(f"[cuda warmup] attempt {attempt} not ready: {last_err}", flush=True)
+        time.sleep(10)
+    raise RuntimeError(
+        f"CUDA failed to initialize within {max_wait_s}s; last error: {last_err}"
+    )
 
 
 def run(cmd: list[str], **kw) -> None:
@@ -47,6 +90,8 @@ def main() -> int:
         run(["git", "clone", "--depth", "1", "--branch", REPO_REF, REPO_URL, str(WORKDIR)])
 
     run(["uv", "pip", "install", "--no-cache-dir", "-e", f"{WORKDIR}[training]"])
+
+    _wait_for_cuda(max_wait_s=180)
 
     env = os.environ.copy()
     env.setdefault("TRAINING_CONFIG", "training/config/training.smoke.yaml")

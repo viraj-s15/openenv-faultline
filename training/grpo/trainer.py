@@ -108,7 +108,7 @@ def build_prompt_dataset(
 
 
 def reward_from_rollout(prompts, completions, **kwargs) -> list[float]:
-    """TRL-compatible reward: reads `trajectories` extra field forwarded by the rollout."""
+    """Aggregate env reward (sum of per-step rewards). Logged as the primary signal."""
     trajectories = kwargs.get("trajectories")
     if trajectories is None:
         return [0.0 for _ in completions]
@@ -118,6 +118,35 @@ def reward_from_rollout(prompts, completions, **kwargs) -> list[float]:
         else 0.0
         for trajectory in trajectories
     ]
+
+
+def reward_parse_success(prompts, completions, **kwargs) -> list[float]:
+    """Fraction of episode steps that produced a parseable command."""
+    trajectories = kwargs.get("trajectories")
+    if trajectories is None:
+        return [0.0 for _ in completions]
+    out: list[float] = []
+    for trajectory in trajectories:
+        if not isinstance(trajectory, EpisodeTrajectory) or not trajectory.steps:
+            out.append(0.0)
+            continue
+        ok = sum(1 for s in trajectory.steps if not s.info.get("parse_error"))
+        out.append(ok / len(trajectory.steps))
+    return out
+
+
+def reward_episode_progress(prompts, completions, **kwargs) -> list[float]:
+    """1.0 if the episode terminated successfully (env signaled done), else 0.0."""
+    trajectories = kwargs.get("trajectories")
+    if trajectories is None:
+        return [0.0 for _ in completions]
+    out: list[float] = []
+    for trajectory in trajectories:
+        if not isinstance(trajectory, EpisodeTrajectory) or not trajectory.steps:
+            out.append(0.0)
+            continue
+        out.append(1.0 if trajectory.steps[-1].done else 0.0)
+    return out
 
 
 def _extract_task_name(prompt: str) -> str:
