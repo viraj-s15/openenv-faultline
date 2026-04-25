@@ -5,6 +5,15 @@ export APP_ROOT="${APP_ROOT:-/home/user/app}"
 export MESH_ROOT="${MESH_ROOT:-/mesh}"
 
 mkdir -p /tmp
+mkdir -p "${MESH_ROOT}"
+
+if [ "${MESH_ROOT}" != "/mesh" ] && [ ! -e /mesh ]; then
+  ln -sfn "${MESH_ROOT}" /mesh 2>/dev/null || true
+fi
+
+if [ ! -e /mesh ]; then
+  echo "warning: /mesh is unavailable; use MESH_ROOT=${MESH_ROOT} paths for local commands" >&2
+fi
 
 redis-server --daemonize yes --logfile /tmp/redis.log --port 6379
 until redis-cli ping >/dev/null; do sleep 0.2; done

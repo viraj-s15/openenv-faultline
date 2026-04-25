@@ -227,8 +227,71 @@ def test_environment_reset_uses_process_manager_and_returns_metrics(
 
     assert process_manager.restarted is True
     assert poller.polled is True
+    assert (tmp_path / "mesh" / "registry.json").exists()
     assert observation.command_output == "WarGames mesh ready."
     assert observation.metrics.gateway_success_rate == 1.0
+
+
+def test_run_red_command_returns_output_and_metadata(tmp_path):
+    env = WarGamesEnv(project_root=tmp_path, mesh_root=tmp_path / "mesh")
+
+    result = env._run_red_command("printf hello", timeout_s=1)
+
+    assert result.output == "hello"
+    assert result.exit_code == 0
+    assert result.timed_out is False
+    assert result.command == "printf hello"
+    assert result.duration_ms >= 0
+
+
+def test_run_red_command_returns_timeout_metadata(tmp_path):
+    env = WarGamesEnv(project_root=tmp_path, mesh_root=tmp_path / "mesh")
+
+    result = env._run_red_command("sleep 1", timeout_s=0.01)
+
+    assert result.exit_code == 124
+    assert result.timed_out is True
+    assert result.command == "sleep 1"
+    assert "timed out" in result.output
+    assert result.duration_ms >= 0
+
+
+def test_run_red_command_preserves_existing_path(tmp_path, monkeypatch):
+    env = WarGamesEnv(project_root=tmp_path, mesh_root=tmp_path / "mesh")
+    captured = {}
+
+    def fake_run(*args, **kwargs):
+        captured["path"] = kwargs["env"]["PATH"]
+        return subprocess.CompletedProcess(
+            args=args, returncode=0, stdout="ok", stderr=""
+        )
+
+    monkeypatch.setenv("PATH", "/custom/bin")
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    result = env._run_red_command("tool", timeout_s=1)
+
+    assert result.exit_code == 0
+    assert captured["path"].startswith("/custom/bin:")
+    assert "/usr/local/bin" in captured["path"]
+
+
+def test_run_red_command_exports_mesh_and_app_roots(tmp_path, monkeypatch):
+    env = WarGamesEnv(project_root=tmp_path, mesh_root=tmp_path / "mesh")
+    captured = {}
+
+    def fake_run(*args, **kwargs):
+        captured["env"] = kwargs["env"]
+        return subprocess.CompletedProcess(
+            args=args, returncode=0, stdout="ok", stderr=""
+        )
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    env._run_red_command("tool", timeout_s=1)
+
+    assert captured["env"]["APP_ROOT"] == str(tmp_path)
+    assert captured["env"]["MESH_ROOT"] == str(tmp_path / "mesh")
 
 
 def test_environment_step_returns_output_metrics_and_exit_code(tmp_path, monkeypatch):
@@ -268,6 +331,9 @@ def test_environment_step_returns_output_metrics_and_exit_code(tmp_path, monkeyp
     assert result.observation.metrics.queue_depth == 2
     assert result.reward == 0.0
     assert result.info["exit_code"] == 0
+    assert result.info["timed_out"] is False
+    assert result.info["command"] == "echo hello"
+    assert result.info["duration_ms"] >= 0
 
 
 def test_fastapi_routes_delegate_to_env():
@@ -292,7 +358,12 @@ def test_fastapi_routes_delegate_to_env():
                 observation=self.reset(),
                 reward=0.0,
                 done=False,
-                info={"command": action.command},
+                info={
+                    "command": action.command,
+                    "exit_code": 0,
+                    "timed_out": False,
+                    "duration_ms": 1,
+                },
             )
 
         def state(self):
@@ -309,4 +380,7 @@ def test_fastapi_routes_delegate_to_env():
     assert reset_response.json()["command_output"] == "reset:demo"
     assert step_response.status_code == 200
     assert step_response.json()["info"]["command"] == "date"
+    assert step_response.json()["info"]["exit_code"] == 0
+    assert step_response.json()["info"]["timed_out"] is False
+    assert step_response.json()["info"]["duration_ms"] == 1
     assert state_response.json()["step_count"] == 1

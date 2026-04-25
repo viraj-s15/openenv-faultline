@@ -1,11 +1,22 @@
 import os
 import subprocess
+import time
+from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
 
 from wargames_env.models import StepResult, WarGamesAction, WarGamesObservation
 from wargames_env.server.metrics_poller import MetricsPoller
 from wargames_env.server.process_manager import ProcessManager
+
+
+@dataclass(frozen=True)
+class RedCommandResult:
+    command: str
+    output: str
+    exit_code: int
+    timed_out: bool
+    duration_ms: int
 
 
 class WarGamesEnv:
@@ -64,6 +75,54 @@ class WarGamesEnv:
             reward=reward,
         )
 
+    def _run_red_command(self, command: str, timeout_s: float) -> RedCommandResult:
+        started_at = time.monotonic()
+        shell_path = ":".join(
+            path
+            for path in [
+                os.environ.get("PATH", ""),
+                "/usr/local/sbin",
+                "/usr/local/bin",
+                "/usr/sbin",
+                "/usr/bin",
+                "/sbin",
+                "/bin",
+            ]
+            if path
+        )
+        try:
+            result = subprocess.run(
+                command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=timeout_s,
+                cwd="/",
+                env={
+                    **os.environ,
+                    "APP_ROOT": str(self.project_root),
+                    "MESH_ROOT": str(self.mesh_root),
+                    "PATH": shell_path,
+                },
+                check=False,
+            )
+            exit_code = result.returncode
+            output = (result.stdout + result.stderr).strip() or "(no output)"
+            timed_out = False
+        except subprocess.TimeoutExpired:
+            exit_code = 124
+            output = f"Command timed out after {timeout_s:g} seconds."
+            timed_out = True
+
+        duration_ms = max(0, int((time.monotonic() - started_at) * 1000))
+        return RedCommandResult(
+            command=command,
+            output=output,
+            exit_code=exit_code,
+            timed_out=timed_out,
+            duration_ms=duration_ms,
+        )
+
     def reset(
         self,
         task_name: str | None = None,
@@ -87,32 +146,20 @@ class WarGamesEnv:
     ) -> StepResult:
         self.step_count += 1
         timeout = timeout_s or 10
-        try:
-            result = subprocess.run(
-                action.command,
-                shell=True,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                cwd="/",
-                env={
-                    **os.environ,
-                    "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-                },
-                check=False,
-            )
-            self.last_exit_code = result.returncode
-            command_output = (result.stdout + result.stderr).strip() or "(no output)"
-        except subprocess.TimeoutExpired:
-            self.last_exit_code = 124
-            command_output = f"Command timed out after {timeout:g} seconds."
+        command_result = self._run_red_command(action.command, timeout_s=timeout)
+        self.last_exit_code = command_result.exit_code
         done = self.step_count >= self.max_steps
-        observation = self._observation(command_output, done=done, reward=0.0)
+        observation = self._observation(command_result.output, done=done, reward=0.0)
         return StepResult(
             observation=observation,
             reward=0.0,
             done=done,
-            info={"exit_code": self.last_exit_code},
+            info={
+                "exit_code": command_result.exit_code,
+                "timed_out": command_result.timed_out,
+                "command": command_result.command,
+                "duration_ms": command_result.duration_ms,
+            },
         )
 
     def state(self) -> dict[str, object]:
