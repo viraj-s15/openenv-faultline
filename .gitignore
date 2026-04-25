@@ -8,3 +8,4 @@ outputs
 node_modules
 *.egg-info
 dump.rdb
+.env
