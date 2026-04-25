@@ -105,6 +105,7 @@ def build_grpo_config(settings: dict):
         "vllm_mode",
         "vllm_gpu_memory_utilization",
         "vllm_tensor_parallel_size",
+        "gradient_checkpointing",
     ):
         if key in trainer:
             config_kwargs[key] = trainer[key]
