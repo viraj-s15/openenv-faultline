@@ -28,7 +28,7 @@ training = [
   "torch>=2.8.0,<2.9",
   "transformers>=4.56.1",
   "trl>=0.25.0",
-  "unsloth>=2025.9.4",
+  "unsloth>=2026.4.8",
   "vllm>=0.10.0,<0.11",
   "wandb>=0.19.0",
 ]
