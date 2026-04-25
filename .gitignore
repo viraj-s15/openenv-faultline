@@ -11,4 +11,5 @@ dump.rdb
 .secrets
 
 dashboard/public/scenarios
+dashboard/tsconfig.tsbuildinfo
 dashboard/dist/
