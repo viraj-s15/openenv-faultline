@@ -46,10 +46,7 @@ def main() -> int:
     if not WORKDIR.exists():
         run(["git", "clone", "--depth", "1", "--branch", REPO_REF, REPO_URL, str(WORKDIR)])
 
-    run([
-        sys.executable, "-m", "pip", "install", "--no-cache-dir",
-        "-e", f"{WORKDIR}[training]",
-    ])
+    run(["uv", "pip", "install", "--no-cache-dir", "-e", f"{WORKDIR}[training]"])
 
     env = os.environ.copy()
     env.setdefault("TRAINING_CONFIG", "training/config/training.smoke.yaml")
