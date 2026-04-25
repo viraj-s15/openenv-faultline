@@ -63,7 +63,6 @@ class LocalGenerationClient:
                     messages,
                     tokenize=False,
                     add_generation_prompt=True,
-                    enable_thinking=False,
                 )
         inputs = self.tokenizer(templated, return_tensors="pt").to(self.model.device)
         do_sample = self.temperature > 0.0
@@ -164,7 +163,6 @@ def _templated_user_turn(tokenizer, content: str, add_generation_prompt: bool) -
             [{"role": "user", "content": content}],
             tokenize=False,
             add_generation_prompt=add_generation_prompt,
-            enable_thinking=False,
         )
 
 
@@ -179,7 +177,6 @@ def _templated_user_continuation(tokenizer, content: str) -> str:
             [{"role": "user", "content": content}],
             tokenize=False,
             add_generation_prompt=True,
-            enable_thinking=False,
         )
 
 
@@ -194,6 +191,23 @@ def make_rollout_func(env_client, max_steps: int, tokenizer):
     feedback tokens are inserted between turns and zero-masked via `env_mask`.
     """
     pad_id = tokenizer.pad_token_id or tokenizer.eos_token_id
+    # Mask the chain-of-thought from GRPO loss: keep thinking enabled at
+    # generation time (Qwen3 default) but zero-mask every token up to and
+    # including `</think>` so the optimizer only updates on the JSON answer.
+    # If `</think>` never appears (truncated thinking), mask the whole turn.
+    think_close_id = tokenizer.convert_tokens_to_ids("</think>")
+    if not isinstance(think_close_id, int) or think_close_id < 0:
+        think_close_id = None
+
+    def _turn_env_mask(turn_ids: list[int]) -> list[int]:
+        if think_close_id is None:
+            return [1] * len(turn_ids)
+        try:
+            cut = turn_ids.index(think_close_id) + 1
+        except ValueError:
+            return [0] * len(turn_ids)
+        return [0] * cut + [1] * (len(turn_ids) - cut)
+
 
     def rollout_func(prompts, trainer):
         vllm = trainer.vllm_generation
@@ -241,7 +255,7 @@ def make_rollout_func(env_client, max_steps: int, tokenizer):
 
                 completion_token_ids.extend(turn_completion_ids)
                 completion_logprobs.extend(turn_logprobs)
-                env_mask.extend([1] * len(turn_completion_ids))
+                env_mask.extend(_turn_env_mask(turn_completion_ids))
 
                 raw_completion = tokenizer.decode(
                     turn_completion_ids, skip_special_tokens=True

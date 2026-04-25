@@ -52,7 +52,7 @@ def main() -> int:
         base_model = yaml.safe_load(Path(args.training_config).read_text())["model"]["base_model"]
     print(f"[merge] base_model={base_model}", flush=True)
 
-    repo_id = args.repo_id
+    repo_id = args.repo_id or os.getenv("PUBLISH_MERGED_REPO_ID")
     if repo_id is None:
         repo_id = yaml.safe_load(Path(args.publish_config).read_text())["merged_repo_id"]
     print(f"[merge] repo_id={repo_id}", flush=True)

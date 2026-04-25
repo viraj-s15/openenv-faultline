@@ -101,15 +101,77 @@ def main() -> None:
     trainer.train()
 
     if os.getenv("PUBLISH_ON_FINISH", "true").lower() in {"1", "true", "yes"}:
-        _publish_artifacts(settings, trainer)
+        # Stage 1: save + push adapter while trainer/model objects still exist.
+        adapter_dir = _save_and_push_adapter(settings, trainer)
+        # Stage 2: drop all GPU-resident state (trainer, model, vLLM engine,
+        # optimizer) before spawning the merge subprocess; otherwise the merge
+        # process collides with the parent's still-allocated CUDA memory and
+        # OOMs on weight materialization.
+        _shutdown_trainer(trainer)
+        trainer_ref["trainer"] = None
+        del trainer
+        del model
+        _release_gpu_memory()
+        if adapter_dir is not None:
+            _run_merge_subprocess(adapter_dir)
 
 
-def _publish_artifacts(settings: dict, trainer) -> None:
-    """After training: save final adapter, push it to HF Hub, then merge+push
-    in a subprocess so vLLM's GPU memory is released before the base model is
-    loaded for merging (in-process vLLM cleanup is unreliable)."""
-    import subprocess as _sub
-    import sys as _sys
+def _shutdown_trainer(trainer) -> None:
+    """Best-effort release of trainer-owned GPU resources before deletion.
+
+    TRL holds the live model, the reference adapter, the optimizer state, and
+    the colocated vLLM engine. We try to shut each down explicitly so the
+    parent process's CUDA memory is reclaimed before the merge subprocess
+    spawns. Each step is best-effort: a failure here must not crash the run.
+    """
+    try:
+        vllm_gen = getattr(trainer, "vllm_generation", None)
+        if vllm_gen is not None:
+            llm = getattr(vllm_gen, "llm", None)
+            if llm is not None and hasattr(llm, "sleep"):
+                try:
+                    llm.sleep(level=2)
+                except Exception:
+                    pass
+            # Drop the LLM reference; vLLM's destructor releases the workers.
+            try:
+                vllm_gen.llm = None
+            except Exception:
+                pass
+            trainer.vllm_generation = None
+    except Exception as exc:
+        print(f"[publish] vllm shutdown best-effort failed: {exc}", flush=True)
+
+    for attr in ("optimizer", "lr_scheduler", "model_wrapped", "_model", "model"):
+        try:
+            setattr(trainer, attr, None)
+        except Exception:
+            pass
+
+
+def _release_gpu_memory() -> None:
+    import gc
+    gc.collect()
+    try:
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.ipc_collect()
+            free, total = torch.cuda.mem_get_info()
+            print(
+                f"[publish] gpu free after release: {free / 1024**3:.2f} GiB / "
+                f"{total / 1024**3:.2f} GiB",
+                flush=True,
+            )
+    except Exception as exc:
+        print(f"[publish] gpu release best-effort failed: {exc}", flush=True)
+
+
+def _save_and_push_adapter(settings: dict, trainer):
+    """Save the LoRA adapter to disk and push to HF Hub.
+
+    Returns the adapter directory path on success, or None on failure.
+    """
     from pathlib import Path as _Path
 
     output_dir = _Path(settings["trainer"]["output_dir"])
@@ -122,8 +184,11 @@ def _publish_artifacts(settings: dict, trainer) -> None:
         print(f"[publish] trainer.save_model failed: {exc}", flush=True)
 
     if not (output_dir / "adapter_config.json").exists():
-        print(f"[publish] no adapter_config.json under {output_dir}; skipping push", flush=True)
-        return
+        print(
+            f"[publish] no adapter_config.json under {output_dir}; skipping push",
+            flush=True,
+        )
+        return None
 
     from training.publish.push_adapter import push_adapter
 
@@ -134,13 +199,21 @@ def _publish_artifacts(settings: dict, trainer) -> None:
     except Exception as exc:
         print(f"[publish] adapter push failed: {exc}", flush=True)
 
+    return output_dir
+
+
+def _run_merge_subprocess(adapter_dir) -> None:
+    """Spawn a clean Python process to merge LoRA + base, then push merged."""
+    import subprocess as _sub
+    import sys as _sys
+
     if os.getenv("PUBLISH_MERGED", "true").lower() not in {"1", "true", "yes"}:
         return
 
     print("[publish] launching merge subprocess (clean GPU context)", flush=True)
     proc = _sub.run(
         [_sys.executable, "-m", "training.publish.merge_runner",
-         "--adapter-path", str(output_dir)],
+         "--adapter-path", str(adapter_dir)],
         env=os.environ.copy(),
     )
     if proc.returncode != 0:
