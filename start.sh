@@ -3,6 +3,7 @@ set -euo pipefail
 
 export APP_ROOT="${APP_ROOT:-/home/user/app}"
 export MESH_ROOT="${MESH_ROOT:-/mesh}"
+export PORT="${PORT:-8000}"
 
 mkdir -p /tmp
 mkdir -p "${MESH_ROOT}"
@@ -58,11 +59,11 @@ for _ in $(seq 1 45); do
 done
 
 if command -v uvicorn >/dev/null; then
-  exec uvicorn server.app:app --host 0.0.0.0 --port 8000
+  exec uvicorn server.app:app --host 0.0.0.0 --port "${PORT}"
 fi
 
 if command -v uv >/dev/null; then
-  exec uv run uvicorn server.app:app --host 0.0.0.0 --port 8000
+  exec uv run uvicorn server.app:app --host 0.0.0.0 --port "${PORT}"
 fi
 
-exec python -m uvicorn server.app:app --host 0.0.0.0 --port 8000
+exec python -m uvicorn server.app:app --host 0.0.0.0 --port "${PORT}"

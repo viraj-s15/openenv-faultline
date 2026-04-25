@@ -1,3 +1,12 @@
+---
+title: wargames-openenv
+sdk: docker
+app_port: 8000
+colorFrom: red
+colorTo: indigo
+short_description: OpenEnv WarGames environment for red-vs-blue distributed systems attacks.
+---
+
 # WarGames
 
 WarGames is an OpenEnv environment for teaching agents to interact with a live distributed system through bash commands.
@@ -27,6 +36,31 @@ curl -X POST http://localhost:8000/step \
 ```
 
 In Docker, `/mesh` points at the app-local mesh directory. On local machines, `start.sh` attempts to create the same `/mesh` link when permissions allow it. If that link is unavailable, use the exported `MESH_ROOT` path inside Red commands, for example `cat "$MESH_ROOT/gateway/config.json"`.
+
+## Docker And Spaces
+
+The root `Dockerfile` is the Hugging Face Spaces hosting image. It starts Redis, the Bun mesh services, and the FastAPI OpenEnv server through `start.sh`.
+
+```bash
+make build-space
+make run-space
+```
+
+In another shell, smoke test the hosted environment:
+
+```bash
+make smoke-space
+```
+
+Hugging Face Spaces uses the `sdk: docker` and `app_port: 8000` metadata above. Keep that port aligned with `openenv.yaml`, `Dockerfile`, and the default `PORT` in `start.sh`.
+
+`Dockerfile.inference` preserves the local Dockerized benchmark/evaluation image, including `inference.py`:
+
+```bash
+make build-inference
+```
+
+LLM provider secrets are only required for LLM-driven tasks such as `phase-2-blue-llm-showdown`; basic `/health`, `/reset`, and `/step` calls do not require them.
 
 ## Red Action Schema
 

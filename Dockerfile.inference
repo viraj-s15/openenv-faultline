@@ -50,6 +50,7 @@ RUN --mount=type=cache,target=/home/user/.bun/install/cache,uid=1000,gid=1000 \
 
 COPY --chown=user:user src/ ./src/
 COPY --chown=user:user server/ ./server/
+COPY --chown=user:user inference.py ./
 RUN --mount=type=cache,target=/home/user/.cache/pip,uid=1000,gid=1000 \
     pip install --user --no-deps -e .
 
