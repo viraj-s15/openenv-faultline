@@ -4,7 +4,7 @@ sdk: docker
 app_port: 8000
 colorFrom: red
 colorTo: indigo
-short_description: OpenEnv WarGames environment for red-vs-blue distributed systems attacks.
+short_description: WarGames red-vs-blue distributed systems env
 ---
 
 # WarGames

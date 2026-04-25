@@ -8,6 +8,7 @@ node_modules
 *.egg-info
 dump.rdb
 .env
+.secrets
 
 dashboard/public/scenarios
 dashboard/dist/
