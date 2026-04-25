@@ -34,7 +34,7 @@ trainer:
   vllm_gpu_memory_utilization: 0.65
   vllm_max_model_length: 10240
   gradient_checkpointing: true
-  max_steps: 200
+  max_steps: 150
   save_steps: 50
   logging_steps: 1
 wandb:
