@@ -73,7 +73,6 @@ class LocalGRPOConfig:
     save_steps: int = 500
     logging_steps: int = 10
     log_completions: bool = False
-    wandb_log_unique_prompts: bool = False
 
 
 def build_grpo_config(settings: dict):
@@ -96,7 +95,6 @@ def build_grpo_config(settings: dict):
         # Surface Red completions as W&B tables so per-step bash commands are
         # visible alongside the loss/reward scalars.
         "log_completions": bool(wandb_enabled),
-        "wandb_log_unique_prompts": False,
     }
     # Optional schedule controls; leave TRL defaults intact when absent.
     for key in ("max_steps", "num_train_epochs", "save_steps", "logging_steps"):
