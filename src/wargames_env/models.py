@@ -31,6 +31,17 @@ class WarGamesObservation(Observation):
     process_status: dict[str, str] = Field(default_factory=dict)
 
 
+class WarGamesState(BaseModel):
+    episode_id: str | None = None
+    task_name: str
+    step_count: int = Field(..., ge=0)
+    max_steps: int = Field(..., ge=1)
+    blue_mode: str
+    blue_level: int = Field(..., ge=0)
+    metrics: SystemMetrics
+    process_status: dict[str, str] = Field(default_factory=dict)
+
+
 class StepResult(BaseModel):
     observation: WarGamesObservation
     reward: float = Field(..., ge=0.0, le=1.0)

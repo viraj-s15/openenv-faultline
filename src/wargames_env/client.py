@@ -1,12 +1,17 @@
 from typing import Any
 
 from openenv.core import EnvClient
-from openenv.core.env_server.types import State
 
-from .models import StepResult, SystemMetrics, WarGamesAction, WarGamesObservation
+from .models import (
+    StepResult,
+    SystemMetrics,
+    WarGamesAction,
+    WarGamesObservation,
+    WarGamesState,
+)
 
 
-class WarGamesClient(EnvClient[WarGamesAction, WarGamesObservation, State]):
+class WarGamesClient(EnvClient[WarGamesAction, WarGamesObservation, WarGamesState]):
     def _step_payload(self, action: WarGamesAction) -> dict[str, Any]:
         return {"command": action.command}
 
@@ -28,8 +33,5 @@ class WarGamesClient(EnvClient[WarGamesAction, WarGamesObservation, State]):
             info=payload.get("info", {}),
         )
 
-    def _parse_state(self, payload: dict[str, Any]) -> State:
-        return State(
-            episode_id=payload.get("episode_id"),
-            step_count=payload.get("step_count", 0),
-        )
+    def _parse_state(self, payload: dict[str, Any]) -> WarGamesState:
+        return WarGamesState.model_validate(payload)

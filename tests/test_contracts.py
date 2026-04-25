@@ -119,10 +119,29 @@ def test_client_serializes_action_and_parses_step_result():
 def test_client_parses_state_payload():
     client = WarGamesClient.__new__(WarGamesClient)
 
-    state = client._parse_state({"episode_id": "episode-1", "step_count": 7})
+    state = client._parse_state(
+        {
+            "episode_id": "episode-1",
+            "task_name": "phase-2-blue-l4",
+            "step_count": 7,
+            "max_steps": 10,
+            "blue_mode": "scripted",
+            "blue_level": 4,
+            "metrics": {
+                "gateway_success_rate": 1.0,
+                "gateway_p99_latency_ms": 0.0,
+                "queue_depth": 0,
+                "worker_restart_count": 0,
+                "consumer_stall_count": 0,
+            },
+            "process_status": {"gateway": "running"},
+        }
+    )
 
     assert state.episode_id == "episode-1"
+    assert state.task_name == "phase-2-blue-l4"
     assert state.step_count == 7
+    assert state.max_steps == 10
 
 
 def test_metrics_poller_updates_snapshot_from_sources(monkeypatch):
@@ -366,11 +385,27 @@ def test_fastapi_routes_delegate_to_env():
                     "exit_code": 0,
                     "timed_out": False,
                     "duration_ms": 1,
+                    "termination_reason": "max_steps",
                 },
             )
 
         def state(self):
-            return {"episode_id": "episode-1", "step_count": 1}
+            return {
+                "episode_id": "episode-1",
+                "task_name": "phase-2-blue-l4",
+                "step_count": 1,
+                "max_steps": 10,
+                "blue_mode": "scripted",
+                "blue_level": 4,
+                "metrics": {
+                    "gateway_success_rate": 1.0,
+                    "gateway_p99_latency_ms": 0.0,
+                    "queue_depth": 0,
+                    "worker_restart_count": 0,
+                    "consumer_stall_count": 0,
+                },
+                "process_status": {"gateway": "running"},
+            }
 
     app.state.env = FakeEnv()
     client = TestClient(app)
@@ -386,4 +421,7 @@ def test_fastapi_routes_delegate_to_env():
     assert step_response.json()["info"]["exit_code"] == 0
     assert step_response.json()["info"]["timed_out"] is False
     assert step_response.json()["info"]["duration_ms"] == 1
+    assert step_response.json()["info"]["termination_reason"] == "max_steps"
     assert state_response.json()["step_count"] == 1
+    assert state_response.json()["task_name"] == "phase-2-blue-l4"
+    assert state_response.json()["max_steps"] == 10

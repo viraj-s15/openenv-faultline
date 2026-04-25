@@ -11,6 +11,7 @@ from wargames_env.server.config_baseline import ConfigBaseline
 from wargames_env.server.metrics_poller import MetricsPoller
 from wargames_env.server.process_manager import ProcessManager
 from wargames_env.server.reward import RewardContext, compute_red_reward
+from wargames_env.server.tasks import DEFAULT_TASK_NAME, get_task_config
 
 
 @dataclass(frozen=True)
@@ -38,6 +39,7 @@ class WarGamesEnv:
         )
         self._metrics_poller = MetricsPoller(poll_interval_s=2.0)
         self.max_steps = 10
+        self.task_name = DEFAULT_TASK_NAME
         self.last_exit_code = 0
         self._blue_defender = BlueDefender(select_blue_defender(None))
         self._recent_commands: list[str] = []
@@ -87,6 +89,31 @@ class WarGamesEnv:
     def _snapshot_metrics(self):
         self._metrics_poller.poll_once()
         return self._metrics_poller.get_current_metrics()
+
+    def _termination_reason(self, process_status: dict[str, str]) -> str | None:
+        if self.step_count >= self.max_steps:
+            return "max_steps"
+        critical_services = ["gateway", "auth", "worker"]
+        stopped_critical = [
+            service
+            for service in critical_services
+            if process_status.get(service) == "stopped"
+        ]
+        if stopped_critical == critical_services:
+            return "mesh_down"
+        return None
+
+    def _termination_error(
+        self, termination_reason: str | None, process_status: dict[str, str]
+    ) -> str | None:
+        if termination_reason != "mesh_down":
+            return None
+        stopped = [
+            service
+            for service in ["gateway", "auth", "worker"]
+            if process_status.get(service) == "stopped"
+        ]
+        return f"critical services stopped: {','.join(stopped)}"
 
     def _run_red_command(self, command: str, timeout_s: float) -> RedCommandResult:
         started_at = time.monotonic()
@@ -144,10 +171,11 @@ class WarGamesEnv:
         self.episode_id = str(uuid4())
         self.step_count = 0
         self._recent_commands = []
-        self._blue_defender = BlueDefender(select_blue_defender(task_name))
-        Path("/tmp/current_task").write_text(
-            self._blue_defender.selection.task_name, encoding="utf-8"
-        )
+        task_config = get_task_config(task_name)
+        self.task_name = task_config.name
+        self.max_steps = task_config.max_steps
+        self._blue_defender = BlueDefender(select_blue_defender(self.task_name))
+        Path("/tmp/current_task").write_text(self.task_name, encoding="utf-8")
         self._write_default_registry()
         self._blue_defender.config_baseline = ConfigBaseline.capture(self.mesh_root)
         self._reset_runtime_files()
@@ -190,7 +218,10 @@ class WarGamesEnv:
         )
         self._recent_commands.append(command_result.command)
         self._recent_commands = self._recent_commands[-5:]
-        done = self.step_count >= self.max_steps
+        process_status = self._process_manager.get_status()
+        termination_reason = self._termination_reason(process_status)
+        termination_error = self._termination_error(termination_reason, process_status)
+        done = termination_reason is not None
         observation = self._observation(
             command_result.output,
             done=done,
@@ -215,6 +246,8 @@ class WarGamesEnv:
                     "metrics_after_red": metrics_after_red.model_dump(),
                     "metrics_after_blue": metrics_after_blue.model_dump(),
                 },
+                "termination_reason": termination_reason,
+                "error": termination_error,
             },
         )
 
@@ -223,6 +256,7 @@ class WarGamesEnv:
         metrics = self._metrics_poller.get_current_metrics()
         return {
             "episode_id": self.episode_id,
+            "task_name": self.task_name,
             "step_count": self.step_count,
             "max_steps": self.max_steps,
             "blue_mode": self._blue_defender.mode.value,

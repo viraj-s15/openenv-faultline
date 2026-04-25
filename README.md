@@ -44,6 +44,32 @@ The Red agent sends a single raw bash command:
 - `duration_ms`
 - `blue_actions`
 - `reward`
+- `termination_reason`
+- `error`
+
+## Phase 4 Environment Contract
+
+`WarGamesEnv` is the canonical OpenEnv environment. `reset(task_name=...)` applies task config, including the server-side `max_steps`, and `/state` returns the authoritative episode state:
+
+```json
+{
+  "episode_id": "episode-1",
+  "task_name": "phase-2-blue-l4",
+  "step_count": 1,
+  "max_steps": 10,
+  "blue_mode": "scripted",
+  "blue_level": 4,
+  "metrics": {},
+  "process_status": {}
+}
+```
+
+`/step` sets `done` when either:
+
+- `termination_reason=max_steps`: the task step budget is exhausted.
+- `termination_reason=mesh_down`: critical services `gateway`, `auth`, and `worker` are all stopped.
+
+When the mesh is down, `info.error` contains a compact failure string for inference logs.
 
 ## Phase 3 Red Reward
 

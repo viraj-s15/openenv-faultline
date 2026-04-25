@@ -5,7 +5,12 @@ from typing import Any, Iterator
 
 import httpx
 
-from wargames_env.models import StepResult, WarGamesAction, WarGamesObservation
+from wargames_env.models import (
+    StepResult,
+    WarGamesAction,
+    WarGamesObservation,
+    WarGamesState,
+)
 
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
@@ -92,6 +97,11 @@ class WarGamesEnvClient:
         response = self._client.post("/step", json=action.model_dump())
         response.raise_for_status()
         return StepResult.model_validate(response.json())
+
+    def state(self) -> WarGamesState:
+        response = self._client.get("/state")
+        response.raise_for_status()
+        return WarGamesState.model_validate(response.json())
 
 
 def _parse_tasks() -> list[str]:
@@ -305,10 +315,13 @@ def _run_episode(client: Any, env: WarGamesEnvClient, task_name: str) -> None:
 
     print(f"[START] task={task_name} env={BENCHMARK} model={MODEL_NAME}", flush=True)
 
-    task_budget = TASK_MAX_STEPS.get(task_name, 10)
-    max_steps = min(task_budget, MAX_STEPS_CAP) if MAX_STEPS_CAP > 0 else task_budget
     try:
         obs = env.reset(task_name=task_name)
+        state = env.state()
+        task_budget = state.max_steps
+        max_steps = (
+            min(task_budget, MAX_STEPS_CAP) if MAX_STEPS_CAP > 0 else task_budget
+        )
         while not done and step < max_steps:
             next_step = step + 1
             user_prompt = build_prompt(obs, next_step, task_name, attempt_history)
