@@ -42,6 +42,9 @@ def main() -> None:
     settings = yaml.safe_load(config_path.read_text())
     curriculum = yaml.safe_load(curriculum_path.read_text())
 
+    env_base_url = os.getenv("ENV_BASE_URL")
+    if env_base_url:
+        settings["env"]["base_url"] = env_base_url
     hf_token = os.getenv("HF_TOKEN")
     if not hf_token:
         raise RuntimeError("HF_TOKEN is required for Hugging Face Jobs")
