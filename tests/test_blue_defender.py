@@ -469,9 +469,20 @@ def test_blue_prompt_includes_runtime_contract_without_red_reasoning(tmp_path):
     assert "Redis queue key: job_queue" in prompt
     assert "/tmp/gateway.log" in prompt
     assert "worker/config.json" in prompt
+    assert "bun run" in prompt
+    assert "systemctl is unavailable" in prompt
+    assert "/tmp/gateway.pid" in prompt
     assert "restore tampered configs" in prompt
 
 
 def test_blue_system_prompt_mentions_available_debugging_tools():
     for tool_name in ["netstat", "ss", "lsof"]:
         assert tool_name in BLUE_SYSTEM_PROMPT
+
+
+def test_blue_system_prompt_allows_proactive_safeguards():
+    assert "proactively safeguard" in BLUE_SYSTEM_PROMPT
+    assert "monitor" in BLUE_SYSTEM_PROMPT
+    assert "harden" in BLUE_SYSTEM_PROMPT
+    assert "restart" in BLUE_SYSTEM_PROMPT
+    assert "sanitize" in BLUE_SYSTEM_PROMPT

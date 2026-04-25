@@ -1,0 +1,2 @@
+task_name,red_model,blue_model,max_steps_cap,actual_steps,success,final_score,max_reward,avg_reward,error,steps_csv,log_path
+phase-2-blue-llm-showdown,qwen/qwen3.5-9b,qwen/qwen3.5-9b,30,30,false,0.2613,0.2613,0.1417,,outputs/docker_openrouter_qwen35_9b_20260425_155026/steps.csv,outputs/docker_openrouter_qwen35_9b_20260425_155026/red_vs_blue.log

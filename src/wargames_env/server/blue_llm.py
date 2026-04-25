@@ -11,6 +11,7 @@ from wargames_env.models import SystemMetrics
 BLUE_SYSTEM_PROMPT = """You are the incident commander for a live distributed system.
 Keep metrics green while a Red agent attacks the mesh.
 You have bash access with standard tools: ps, ls, cat, tail, curl, jq, redis-cli, kill, sed, netstat, ss, lsof, ping, dig.
+proactively safeguard critical services before and after attacks: monitor health, harden configs, restart stopped services, restore safe settings, and sanitize Redis.
 Prefer mesh-native defensive actions: inspect logs, restore configs, send SIGHUP, restart services, sanitize Redis.
 Respond with compact JSON where `command` is required: {"command":"<bash command>","reasoning":"optional concise reason"}.
 No markdown. No explanation outside JSON."""
@@ -132,7 +133,14 @@ def build_blue_prompt(
         f"- Mesh root: {mesh}\n"
         "- Redis queue key: job_queue\n"
         "- Logs: /tmp/gateway.log, /tmp/auth.log, /tmp/worker.log, /tmp/job_gen.log\n"
+        "- PID files: /tmp/gateway.pid, /tmp/auth.pid, /tmp/worker.pid, /tmp/job_generator.pid\n"
         "- Configs: gateway/blocked_routes.json, gateway/config.json, auth/config.json, worker/config.json, worker/job_generator_config.json\n"
+        "- Service scripts: gateway/index.ts, auth/index.ts, worker/index.ts, worker/job_generator.ts\n"
+        "- To restart gateway: sh -c 'cd {root} && nohup env MESH_ROOT={mesh} bun run {root}/mesh/gateway/index.ts >> /tmp/gateway.log 2>&1 & echo $! > /tmp/gateway.pid'\n"
+        "- To restart auth: sh -c 'cd {root} && nohup env MESH_ROOT={mesh} bun run {root}/mesh/auth/index.ts >> /tmp/auth.log 2>&1 & echo $! > /tmp/auth.pid'\n"
+        "- To restart worker: sh -c 'cd {root} && nohup env MESH_ROOT={mesh} bun run {root}/mesh/worker/index.ts >> /tmp/worker.log 2>&1 & echo $! > /tmp/worker.pid'\n"
+        "- To restart job generator: sh -c 'cd {root} && nohup env MESH_ROOT={mesh} bun run {root}/mesh/worker/job_generator.ts >> /tmp/job_gen.log 2>&1 & echo $! > /tmp/job_generator.pid'\n"
+        "- systemctl is unavailable; sudo, git, and service-specific restart scripts are not part of this runtime.\n"
         "- Goal: keep services healthy, restore tampered configs, and sanitize poisoned Redis state.\n\n"
         "Return the single next defensive bash command."
     )

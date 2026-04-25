@@ -39,6 +39,19 @@ def test_parse_tasks_reads_csv(monkeypatch):
     ]
 
 
+def test_red_prompt_mentions_proactive_blue_defense():
+    assert "proactively harden" in inference.SYSTEM_PROMPT
+    assert "monitor" in inference.SYSTEM_PROMPT
+    assert "restore" in inference.SYSTEM_PROMPT
+    assert "sanitize" in inference.SYSTEM_PROMPT
+
+
+def test_red_prompt_mentions_process_kill_budget():
+    assert "Direct process-kill commands are limited to one use per episode" in (
+        inference.SYSTEM_PROMPT
+    )
+
+
 def test_run_episode_uses_server_state_max_steps(monkeypatch):
     class FakeLLMClient:
         def __init__(self):

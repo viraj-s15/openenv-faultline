@@ -144,6 +144,37 @@ def test_step_reports_mesh_down_termination_reason(tmp_path, monkeypatch):
     assert result.info["error"] == "critical services stopped: gateway,auth,worker"
 
 
+def test_process_kill_budget_blocks_second_direct_kill(tmp_path, monkeypatch):
+    env = make_env(tmp_path)
+    env._blue_defender = NoopBlueDefender()
+    calls = []
+
+    def fake_run(command, timeout_s):
+        calls.append(command)
+        return type(
+            "CommandResult",
+            (),
+            {
+                "command": command,
+                "output": "killed",
+                "exit_code": 0,
+                "timed_out": False,
+                "duration_ms": 1,
+            },
+        )()
+
+    monkeypatch.setattr(env, "_run_red_command", fake_run)
+
+    first = env.step(WarGamesAction(command="kill -9 20"))
+    second = env.step(WarGamesAction(command="kill -9 21"))
+
+    assert calls == ["kill -9 20"]
+    assert first.info["process_kill_budget_exhausted"] is False
+    assert second.info["process_kill_budget_exhausted"] is True
+    assert second.info["exit_code"] == 2
+    assert "PROCESS_KILL_BUDGET_EXHAUSTED" in second.observation.command_output
+
+
 def test_client_parses_rich_wargames_state():
     client = WarGamesClient.__new__(WarGamesClient)
 

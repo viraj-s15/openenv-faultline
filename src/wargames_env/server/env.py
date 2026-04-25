@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 import time
 from dataclasses import dataclass
@@ -16,6 +17,14 @@ from wargames_env.server.metrics_poller import MetricsPoller
 from wargames_env.server.process_manager import ProcessManager
 from wargames_env.server.reward import RewardContext, compute_red_reward
 from wargames_env.server.tasks import DEFAULT_TASK_NAME, get_task_config
+
+PROCESS_KILL_BUDGET_EXHAUSTED = (
+    "PROCESS_KILL_BUDGET_EXHAUSTED: direct process-kill actions are limited to "
+    "one use per episode."
+)
+DIRECT_PROCESS_KILL_PATTERN = re.compile(
+    r"(^|[;&|]\s*)(/bin/)?(kill|pkill|killall)\b|xargs\s+(-r\s+)?kill\b"
+)
 
 
 @dataclass(frozen=True)
@@ -47,6 +56,11 @@ class WarGamesEnv:
         self.last_exit_code = 0
         self._blue_defender = BlueDefender(select_blue_defender(None))
         self._recent_commands: list[str] = []
+        self._process_kill_used = False
+
+    @staticmethod
+    def _is_direct_process_kill(command: str) -> bool:
+        return DIRECT_PROCESS_KILL_PATTERN.search(command) is not None
 
     def _write_default_registry(self) -> None:
         self.mesh_root.mkdir(parents=True, exist_ok=True)
@@ -175,6 +189,7 @@ class WarGamesEnv:
         self.episode_id = str(uuid4())
         self.step_count = 0
         self._recent_commands = []
+        self._process_kill_used = False
         task_config = get_task_config(task_name)
         self.task_name = task_config.name
         self.max_steps = task_config.max_steps
@@ -200,7 +215,20 @@ class WarGamesEnv:
         timeout = timeout_s or 10
         metrics_before = self._snapshot_metrics()
         process_status_before = self._process_manager.get_status()
-        command_result = self._run_red_command(action.command, timeout_s=timeout)
+        direct_process_kill = self._is_direct_process_kill(action.command)
+        process_kill_budget_exhausted = direct_process_kill and self._process_kill_used
+        if process_kill_budget_exhausted:
+            command_result = RedCommandResult(
+                command=action.command,
+                output=PROCESS_KILL_BUDGET_EXHAUSTED,
+                exit_code=2,
+                timed_out=False,
+                duration_ms=0,
+            )
+        else:
+            if direct_process_kill:
+                self._process_kill_used = True
+            command_result = self._run_red_command(action.command, timeout_s=timeout)
         self.last_exit_code = command_result.exit_code
         metrics_after_red = self._snapshot_metrics()
         process_status_after_red = self._process_manager.get_status()
@@ -253,6 +281,8 @@ class WarGamesEnv:
                 "command": command_result.command,
                 "reasoning": getattr(action, "reasoning", None),
                 "duration_ms": command_result.duration_ms,
+                "process_kill_used": self._process_kill_used,
+                "process_kill_budget_exhausted": process_kill_budget_exhausted,
                 "blue_actions": [
                     blue_action.model_dump() for blue_action in blue_actions
                 ],
