@@ -106,6 +106,9 @@ def test_client_serializes_action_and_parses_step_result():
     }
 
     assert client._step_payload(WarGamesAction(command="date")) == {"command": "date"}
+    assert client._step_payload(
+        WarGamesAction(command="date", reasoning="check system time")
+    ) == {"command": "date", "reasoning": "check system time"}
     result = client._parse_result(payload)
 
     assert isinstance(result, StepResult)
@@ -347,7 +350,7 @@ def test_environment_step_returns_output_metrics_and_exit_code(tmp_path, monkeyp
     env._metrics_poller = FakePoller()
     monkeypatch.setattr(subprocess, "run", fake_run)
 
-    result = env.step(WarGamesAction(command="echo hello"))
+    result = env.step(WarGamesAction(command="echo hello", reasoning="test output"))
 
     assert result.observation.command_output == "hello"
     assert result.observation.metrics.queue_depth == 2
@@ -355,6 +358,7 @@ def test_environment_step_returns_output_metrics_and_exit_code(tmp_path, monkeyp
     assert result.info["exit_code"] == 0
     assert result.info["timed_out"] is False
     assert result.info["command"] == "echo hello"
+    assert result.info["reasoning"] == "test output"
     assert result.info["duration_ms"] >= 0
 
 
@@ -382,6 +386,7 @@ def test_fastapi_routes_delegate_to_env():
                 done=False,
                 info={
                     "command": action.command,
+                    "reasoning": action.reasoning,
                     "exit_code": 0,
                     "timed_out": False,
                     "duration_ms": 1,
@@ -418,6 +423,7 @@ def test_fastapi_routes_delegate_to_env():
     assert reset_response.json()["command_output"] == "reset:demo"
     assert step_response.status_code == 200
     assert step_response.json()["info"]["command"] == "date"
+    assert step_response.json()["info"]["reasoning"] is None
     assert step_response.json()["info"]["exit_code"] == 0
     assert step_response.json()["info"]["timed_out"] is False
     assert step_response.json()["info"]["duration_ms"] == 1

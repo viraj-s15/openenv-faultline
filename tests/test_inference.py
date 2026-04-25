@@ -60,6 +60,7 @@ def test_run_episode_uses_server_state_max_steps(monkeypatch):
     class FakeEnv:
         def __init__(self):
             self.step_calls = 0
+            self.actions = []
 
         def reset(self, task_name):
             return WarGamesObservation(
@@ -81,6 +82,7 @@ def test_run_episode_uses_server_state_max_steps(monkeypatch):
 
         def step(self, action):
             self.step_calls += 1
+            self.actions.append(action)
             return SimpleNamespace(
                 observation=self.reset("phase-2-blue-l4"),
                 reward=0.0,
@@ -94,3 +96,4 @@ def test_run_episode_uses_server_state_max_steps(monkeypatch):
     inference._run_episode(FakeLLMClient(), fake_env, "phase-2-blue-l4")
 
     assert fake_env.step_calls == 2
+    assert fake_env.actions[0].reasoning == "probe"

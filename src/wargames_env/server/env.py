@@ -236,6 +236,7 @@ class WarGamesEnv:
                 "exit_code": command_result.exit_code,
                 "timed_out": command_result.timed_out,
                 "command": command_result.command,
+                "reasoning": getattr(action, "reasoning", None),
                 "duration_ms": command_result.duration_ms,
                 "blue_actions": [
                     blue_action.model_dump() for blue_action in blue_actions

@@ -357,7 +357,7 @@ def _run_episode(client: Any, env: WarGamesEnvClient, task_name: str) -> None:
                     {"role": "assistant", "content": json.dumps(assistant_payload)}
                 )
 
-            result = env.step(WarGamesAction(command=command))
+            result = env.step(WarGamesAction(command=command, reasoning=reasoning))
             obs = result.observation
             rewards.append(result.reward)
             done = result.done

@@ -14,6 +14,9 @@ class SystemMetrics(BaseModel):
 
 class WarGamesAction(Action):
     command: str = Field(..., description="Single bash command to execute")
+    reasoning: str | None = Field(
+        default=None, description="Optional concise reason for the command"
+    )
 
     @field_validator("command")
     @classmethod
@@ -21,6 +24,14 @@ class WarGamesAction(Action):
         if not value.strip():
             raise ValueError("command must not be empty")
         return value
+
+    @field_validator("reasoning")
+    @classmethod
+    def empty_reasoning_as_none(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
 
 
 class WarGamesObservation(Observation):

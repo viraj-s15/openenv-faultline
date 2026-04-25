@@ -13,7 +13,10 @@ from .models import (
 
 class WarGamesClient(EnvClient[WarGamesAction, WarGamesObservation, WarGamesState]):
     def _step_payload(self, action: WarGamesAction) -> dict[str, Any]:
-        return {"command": action.command}
+        payload = {"command": action.command}
+        if action.reasoning:
+            payload["reasoning"] = action.reasoning
+        return payload
 
     def _parse_result(self, payload: dict[str, Any]) -> StepResult:
         obs_data = payload.get("observation", {})
