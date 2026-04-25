@@ -2,7 +2,7 @@ env:
   base_url: http://localhost:8000
   healthcheck_path: /state
 model:
-  base_model: Qwen/Qwen2.5-7B-Instruct
+  base_model: Qwen/Qwen3.5-9B
   max_seq_length: 2048
   load_in_4bit: true
   lora_rank: 16
@@ -26,6 +26,11 @@ trainer:
   temperature: 0.7
   beta: 0.001
   use_vllm: false
+wandb:
+  enabled: true
+  project: faultline
+  entity: null        # uses your default wandb entity
+  run_name: null      # auto-generated if null
 rollout:
   max_steps_per_episode: 10
   reward_aggregation: sum

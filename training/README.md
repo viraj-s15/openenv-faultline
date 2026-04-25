@@ -34,7 +34,7 @@ training/
 pip install -e ".[training]"
 ```
 
-This pulls unsloth, trl, peft, transformers, torch, and huggingface_hub.
+This pulls unsloth, trl, peft, transformers, torch, huggingface_hub, and wandb.
 
 ## 2. Start the Environment Server
 
@@ -62,7 +62,7 @@ Controls model, LoRA, and trainer settings:
 | Key | Default | What it does |
 |---|---|---|
 | `env.base_url` | `http://localhost:8000` | WarGames server address |
-| `model.base_model` | `Qwen/Qwen2.5-7B-Instruct` | Base model to fine-tune |
+| `model.base_model` | `Qwen/Qwen3.5-9B` | Base model to fine-tune |
 | `model.lora_rank` | 16 | LoRA rank |
 | `model.load_in_4bit` | true | QLoRA for memory efficiency |
 | `trainer.learning_rate` | 5e-6 | GRPO learning rate |
@@ -93,6 +93,26 @@ The agent faces progressively harder scripted Blue defenders. Override with:
 
 ```bash
 export CURRICULUM_CONFIG=path/to/my-curriculum.yaml
+```
+
+### Weights & Biases
+
+Training logs metrics to [wandb](https://wandb.ai) by default. Configure in `training/config/training.base.yaml`:
+
+```yaml
+wandb:
+  enabled: true
+  project: faultline
+  entity: null        # uses your default wandb entity
+  run_name: null      # auto-generated if null
+```
+
+Set `wandb.enabled: false` to disable. When enabled, TRL reports loss, reward, and rollout stats to the wandb dashboard automatically.
+
+To log in before training:
+
+```bash
+wandb login
 ```
 
 ## 4. Train
@@ -158,7 +178,7 @@ from training.publish.push_merged import export_merged_model
 from training.publish.model_card import build_model_card_text
 
 output_dir = export_merged_model(
-    base_model="Qwen/Qwen2.5-7B-Instruct",
+    base_model="Qwen/Qwen3.5-9B",
     adapter_path="training/artifacts/checkpoints/checkpoint-XXX",
     output_dir="training/artifacts/merged",
 )
@@ -244,3 +264,7 @@ On startup, the Vite plugin reads `outputs/` directories, converts CSV logs to J
 | `HF_TOKEN` | required | HF Jobs, push_adapter, Space |
 | `MODEL_REPO_ID` | — | Space (which model to load) |
 | `BASE_MODEL_NAME` | — | Space (required in adapter mode) |
+| `WANDB_MODE` | `disabled` | Set to `online` to log to wandb |
+| `WANDB_PROJECT` | `faultline` | wandb project name |
+| `WANDB_ENTITY` | your default | wandb entity (team/user) |
+| `WANDB_NAME` | auto | Run name (auto-generated if not set) |

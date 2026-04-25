@@ -5,6 +5,7 @@ import yaml
 
 from training.env_adapter.client import WarGamesTrainingClient
 from training.env_adapter.task_selector import select_curriculum_tasks
+from training.grpo.config import configure_wandb
 from training.grpo.model import load_training_model
 from training.grpo.trainer import (
     LocalGenerationClient,
@@ -25,6 +26,8 @@ def main() -> None:
     hf_token = os.getenv("HF_TOKEN")
     if not hf_token:
         raise RuntimeError("HF_TOKEN is required for Hugging Face Jobs")
+
+    configure_wandb(settings)
 
     env_client = WarGamesTrainingClient(settings["env"]["base_url"])
     model, tokenizer = load_training_model(settings)
