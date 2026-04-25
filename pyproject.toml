@@ -25,11 +25,11 @@ training = [
   "huggingface_hub>=0.35.1",
   "peft>=0.17.1",
   "pyyaml>=6.0.2",
-  "torch>=2.8.0",
+  "torch>=2.11.0",
   "transformers>=4.56.1",
   "trl>=0.25.0",
   "unsloth>=2025.9.4",
-  "vllm>=0.6.0",
+  "vllm>=0.10.0,<0.11",
   "wandb>=0.19.0",
 ]
 

@@ -14,6 +14,9 @@ Required env:
 
 from __future__ import annotations
 
+# Unsloth must be imported before transformers/trl so its monkey-patches apply.
+import unsloth  # noqa: F401  isort: skip
+
 import os
 from pathlib import Path
 from typing import Sequence
