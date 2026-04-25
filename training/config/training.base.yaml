@@ -30,6 +30,9 @@ trainer:
   # FastLanguageModel(fast_inference=True) provides a vLLM backend, so this
   # MUST be true for the env-grounded rollout to be exercised.
   use_vllm: true
+  vllm_mode: colocate
+  vllm_gpu_memory_utilization: 0.55
+  vllm_max_model_len: 2048
   max_steps: 1500
   save_steps: 250
   logging_steps: 10

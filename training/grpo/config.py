@@ -97,7 +97,16 @@ def build_grpo_config(settings: dict):
         "log_completions": bool(wandb_enabled),
     }
     # Optional schedule controls; leave TRL defaults intact when absent.
-    for key in ("max_steps", "num_train_epochs", "save_steps", "logging_steps"):
+    for key in (
+        "max_steps",
+        "num_train_epochs",
+        "save_steps",
+        "logging_steps",
+        "vllm_mode",
+        "vllm_gpu_memory_utilization",
+        "vllm_max_model_len",
+        "vllm_tensor_parallel_size",
+    ):
         if key in trainer:
             config_kwargs[key] = trainer[key]
 
