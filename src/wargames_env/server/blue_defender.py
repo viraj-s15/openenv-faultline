@@ -2,10 +2,16 @@ import json
 import subprocess
 from dataclasses import dataclass, field
 from enum import Enum, IntEnum
-from typing import Callable
+from pathlib import Path
+from typing import Callable, Protocol, cast
 
 from wargames_env.models import SystemMetrics
-from wargames_env.server.blue_llm import build_default_blue_provider, run_blue_llm_tick
+from wargames_env.server.blue_llm import (
+    MetricsProvider,
+    ProcessStatusProvider,
+    build_default_blue_provider,
+    run_blue_llm_tick,
+)
 from wargames_env.server.config_baseline import ConfigBaseline
 
 
@@ -45,6 +51,14 @@ class BlueAction:
         }
 
 
+class RestartingProcessManager(ProcessStatusProvider, Protocol):
+    def start_all(self) -> None: ...
+
+
+class ConfigRestoringProcessManager(Protocol):
+    def sighup(self, service: str) -> None: ...
+
+
 @dataclass
 class BlueDefender:
     selection: BlueSelection
@@ -67,13 +81,25 @@ class BlueDefender:
 
         actions: list[BlueAction] = []
         if self.level >= BlueDefenseLevel.LEVEL_1:
-            actions.extend(self._restart_stopped_services(kwargs["process_manager"]))
+            actions.extend(
+                self._restart_stopped_services(
+                    cast(RestartingProcessManager, kwargs["process_manager"])
+                )
+            )
         if self.level >= BlueDefenseLevel.LEVEL_2 and self.config_baseline is not None:
-            actions.extend(self._restore_modified_configs(kwargs["process_manager"]))
+            actions.extend(
+                self._restore_modified_configs(
+                    cast(ConfigRestoringProcessManager, kwargs["process_manager"])
+                )
+            )
         if self.level >= BlueDefenseLevel.LEVEL_3:
             actions.extend(self._sanitize_queue_and_lock())
         if self.level >= BlueDefenseLevel.LEVEL_4:
-            actions.extend(self._rollback_on_metric_drop(kwargs.get("metrics_poller")))
+            actions.extend(
+                self._rollback_on_metric_drop(
+                    cast(MetricsProvider | None, kwargs.get("metrics_poller"))
+                )
+            )
         return actions
 
     def _run_llm_showdown(self, kwargs: dict[str, object]) -> list[BlueAction]:
@@ -90,12 +116,11 @@ class BlueDefender:
 
         result = run_blue_llm_tick(
             provider=provider,
-            process_manager=kwargs["process_manager"],
-            metrics_poller=kwargs["metrics_poller"],
-            project_root=kwargs["project_root"],
-            mesh_root=kwargs["mesh_root"],
+            process_manager=cast(ProcessStatusProvider, kwargs["process_manager"]),
+            metrics_poller=cast(MetricsProvider, kwargs["metrics_poller"]),
+            project_root=cast(Path, kwargs["project_root"]),
+            mesh_root=cast(Path, kwargs["mesh_root"]),
             red_command=str(kwargs.get("red_command", "")),
-            red_reasoning=kwargs.get("red_reasoning"),
         )
         return [
             BlueAction(
@@ -106,7 +131,9 @@ class BlueDefender:
             )
         ]
 
-    def _restart_stopped_services(self, process_manager: object) -> list[BlueAction]:
+    def _restart_stopped_services(
+        self, process_manager: RestartingProcessManager
+    ) -> list[BlueAction]:
         status = process_manager.get_status()
         stopped_services = [
             service for service, value in status.items() if value == "stopped"
@@ -123,7 +150,9 @@ class BlueDefender:
             )
         ]
 
-    def _restore_modified_configs(self, process_manager: object) -> list[BlueAction]:
+    def _restore_modified_configs(
+        self, process_manager: ConfigRestoringProcessManager
+    ) -> list[BlueAction]:
         if self.config_baseline is None:
             return []
 
@@ -209,7 +238,7 @@ class BlueDefender:
         return actions
 
     def _rollback_on_metric_drop(
-        self, metrics_poller: object | None
+        self, metrics_poller: MetricsProvider | None
     ) -> list[BlueAction]:
         if metrics_poller is None:
             return []

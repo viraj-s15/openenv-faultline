@@ -1,3 +1,4 @@
 {
-  "extraPaths": ["src"]
+  "extraPaths": ["src"],
+  "exclude": ["tests", "outputs", "internal"]
 }

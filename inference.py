@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from typing import Any, Iterator
+from typing import Any, Iterator, cast
 
 import httpx
 
@@ -329,9 +329,9 @@ def _run_episode(client: Any, env: WarGamesEnvClient, task_name: str) -> None:
 
             completion = client.chat.completions.create(
                 model=MODEL_NAME,
-                messages=messages,
+                messages=cast(Any, messages),
                 temperature=TEMPERATURE,
-                **_chat_token_limit_kwargs(),
+                **cast(Any, _chat_token_limit_kwargs()),
             )
 
             raw_response = _assistant_message_text(completion.choices[0].message)

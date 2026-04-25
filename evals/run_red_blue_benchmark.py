@@ -9,7 +9,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 sys.path.insert(0, str(Path.cwd()))
 
@@ -48,6 +48,8 @@ STEP_FIELDS = [
     "red_reasoning",
     "red_exit_code",
     "red_timed_out",
+    "services_affected",
+    "services_restored",
     "blue_action_count",
     "blue_kinds",
     "blue_commands",
@@ -63,10 +65,11 @@ class Tee:
     def __init__(self, *streams: Any) -> None:
         self.streams = streams
 
-    def write(self, data: str) -> None:
+    def write(self, data: str) -> int:
         for stream in self.streams:
             stream.write(data)
             stream.flush()
+        return len(data)
 
     def flush(self) -> None:
         for stream in self.streams:
@@ -75,6 +78,50 @@ class Tee:
 
 def one_line(value: object) -> str:
     return " ".join(str(value).replace("\t", " ").splitlines()).strip()
+
+
+SERVICE_PATTERNS = {
+    "redis": (
+        "redis-cli",
+        "job_queue",
+        "LOCK:job_processor",
+        "appendonly",
+        "config set save",
+    ),
+    "gateway": ("gateway", "auth_timeout_ms", "blocked_routes"),
+    "auth": ("auth/config", "/auth/", " auth "),
+    "worker": (
+        "worker/config",
+        "db_write_delay_ms",
+        "db_pool_size",
+        "LOCK:job_processor",
+        "/worker/",
+        " worker",
+    ),
+    "job_generator": ("job_generator", "interval_ms"),
+}
+
+
+def _classify_services(text: str) -> str:
+    lowered = text.lower()
+    matches = [
+        service
+        for service, patterns in SERVICE_PATTERNS.items()
+        if any(pattern.lower() in lowered for pattern in patterns)
+    ]
+    return ",".join(matches)
+
+
+def classify_services_affected(red_command: str) -> str:
+    return _classify_services(red_command)
+
+
+def classify_services_restored(blue_actions: list[dict[str, Any]]) -> str:
+    text = " ".join(
+        one_line(action.get("target", "")) + " " + one_line(action.get("detail", ""))
+        for action in blue_actions
+    )
+    return _classify_services(text)
 
 
 def folder_label(model: str) -> str:
@@ -217,9 +264,9 @@ def run_model(model: str, max_steps: int, output_root: Path, timestamp: str) -> 
                 )
                 completion = client.chat.completions.create(
                     model=model,
-                    messages=messages,
+                    messages=cast(Any, messages),
                     temperature=inference.TEMPERATURE,
-                    **inference._chat_token_limit_kwargs(),
+                    **cast(Any, inference._chat_token_limit_kwargs()),
                 )
                 raw_response = inference._assistant_message_text(
                     completion.choices[0].message
@@ -278,6 +325,8 @@ def run_model(model: str, max_steps: int, output_root: Path, timestamp: str) -> 
                     "red_timed_out": (
                         info.get("timed_out", "") if isinstance(info, dict) else ""
                     ),
+                    "services_affected": classify_services_affected(red_command),
+                    "services_restored": classify_services_restored(blue_actions),
                     "blue_action_count": len(blue_actions),
                     "blue_kinds": blue_kinds,
                     "blue_commands": blue_commands,

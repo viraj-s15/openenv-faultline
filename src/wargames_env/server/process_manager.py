@@ -3,6 +3,7 @@ import signal
 import subprocess
 import time
 from pathlib import Path
+from typing import TextIO
 
 import httpx
 
@@ -32,7 +33,7 @@ class ProcessManager:
         }
 
         self._processes: dict[str, subprocess.Popen[str]] = {}
-        self._log_handles: dict[str, object] = {}
+        self._log_handles: dict[str, TextIO] = {}
 
     @staticmethod
     def _pid_path(service: str) -> Path:

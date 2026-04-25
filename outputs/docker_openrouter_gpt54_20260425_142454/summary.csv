@@ -1,2 +1,0 @@
-task_name,red_model,blue_model,max_steps_cap,actual_steps,success,final_score,max_reward,avg_reward,error,steps_csv,log_path
-phase-2-blue-llm-showdown,openai/gpt-5.4,openai/gpt-5.4,30,30,false,0.0100,0.0907,0.0105,,outputs/docker_openrouter_gpt54_20260425_142454/steps.csv,outputs/docker_openrouter_gpt54_20260425_142454/red_vs_blue.log

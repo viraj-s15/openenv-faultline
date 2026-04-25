@@ -1,2 +1,0 @@
-task_name,red_model,blue_model,max_steps_cap,actual_steps,success,final_score,max_reward,avg_reward,error,steps_csv,log_path
-phase-2-blue-llm-showdown,minimax-m2.7,minimax-m2.7,30,30,false,0.0100,0.1667,0.0594,,outputs/docker_opencode_minimax_m27_20260425_133613/steps.csv,outputs/docker_opencode_minimax_m27_20260425_133613/red_vs_blue.log

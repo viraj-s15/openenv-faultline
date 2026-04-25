@@ -1,0 +1,1 @@
+[START] task=phase-2-blue-llm-showdown env=docker red_model=meta-llama/llama-3.1-8b-instruct blue_model=meta-llama/llama-3.1-8b-instruct max_steps=30

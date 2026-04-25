@@ -4,7 +4,7 @@ import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterator
+from typing import Any, Callable, Iterator, Protocol, cast
 
 from wargames_env.models import SystemMetrics
 
@@ -17,6 +17,16 @@ No markdown. No explanation outside JSON."""
 
 Provider = Callable[[list[dict[str, str]]], str]
 _JSON_DECODER = json.JSONDecoder()
+
+
+class ProcessStatusProvider(Protocol):
+    def get_status(self) -> dict[str, str]: ...
+
+
+class MetricsProvider(Protocol):
+    def poll_once(self) -> None: ...
+
+    def get_current_metrics(self) -> SystemMetrics: ...
 
 
 @dataclass(frozen=True)
@@ -100,19 +110,15 @@ def build_blue_prompt(
     metrics: SystemMetrics,
     process_status: dict[str, str],
     red_command: str,
-    red_reasoning: object | None = None,
     project_root: Path | None = None,
     mesh_root: Path | None = None,
 ) -> str:
     root = project_root or Path(os.getenv("APP_ROOT", "/home/user/app"))
     mesh = mesh_root or Path(os.getenv("MESH_ROOT", "/mesh"))
-    reasoning = _single_line(str(red_reasoning or "")) or "(none provided)"
     return (
         "Current system state:\n\n"
         "LATEST RED COMMAND:\n"
         f"{red_command}\n\n"
-        "RED REASONING:\n"
-        f"{reasoning}\n\n"
         "METRICS:\n"
         f"- Gateway success rate: {metrics.gateway_success_rate:.1%}\n"
         f"- Gateway P99 latency: {metrics.gateway_p99_latency_ms:.0f}ms\n"
@@ -157,7 +163,7 @@ def build_default_blue_provider() -> Provider | None:
     client = OpenAI(api_key=api_key, base_url=api_base_url, timeout=30.0, max_retries=2)
 
     def provider(messages: list[dict[str, str]]) -> str:
-        token_kwargs = (
+        token_kwargs: dict[str, int] = (
             {"max_completion_tokens": max_completion_tokens}
             if token_param == "max_completion_tokens"
             or "api.openai.com" in api_base_url
@@ -165,9 +171,9 @@ def build_default_blue_provider() -> Provider | None:
         )
         completion = client.chat.completions.create(
             model=model_name,
-            messages=messages,
+            messages=cast(Any, messages),
             temperature=temperature,
-            **token_kwargs,
+            **cast(Any, token_kwargs),
         )
         return str(completion.choices[0].message.content or "")
 
@@ -176,12 +182,11 @@ def build_default_blue_provider() -> Provider | None:
 
 def run_blue_llm_tick(
     provider: Provider,
-    process_manager: object,
-    metrics_poller: object,
+    process_manager: ProcessStatusProvider,
+    metrics_poller: MetricsProvider,
     project_root: Path,
     mesh_root: Path,
     red_command: str,
-    red_reasoning: object | None = None,
 ) -> BlueLLMCommandResult:
     metrics_poller.poll_once()
     metrics = metrics_poller.get_current_metrics()
@@ -194,7 +199,6 @@ def run_blue_llm_tick(
                 metrics=metrics,
                 process_status=process_status,
                 red_command=red_command,
-                red_reasoning=red_reasoning,
                 project_root=project_root,
                 mesh_root=mesh_root,
             ),

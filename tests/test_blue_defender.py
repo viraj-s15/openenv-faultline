@@ -128,7 +128,7 @@ def test_step_runs_blue_tick_and_returns_blue_actions(tmp_path, monkeypatch):
     )
 
     assert blue_defender.received["red_command"] == "date"
-    assert blue_defender.received["red_reasoning"] == "check clock"
+    assert "red_reasoning" not in blue_defender.received
     assert blue_defender.received["process_manager"] is env._process_manager
     assert result.info["blue_actions"] == [
         {
@@ -137,6 +137,64 @@ def test_step_runs_blue_tick_and_returns_blue_actions(tmp_path, monkeypatch):
             "status": "applied",
             "detail": "worker restarted",
         }
+    ]
+
+
+def test_llm_showdown_runs_two_blue_ticks_per_red_step(tmp_path, monkeypatch):
+    class FakeBlueDefender:
+        mode = BlueMode.LLM_SHOWDOWN
+        level = BlueDefenseLevel.LEVEL_4
+
+        def __init__(self):
+            self.calls = 0
+
+        def tick(self, **kwargs):
+            self.calls += 1
+            return [
+                BlueAction(
+                    kind="llm_command",
+                    target=f"repair-{self.calls}",
+                    status="applied",
+                    detail=f"turn {self.calls}",
+                )
+            ]
+
+    env = make_env(tmp_path)
+    blue_defender = FakeBlueDefender()
+    env._blue_defender = blue_defender
+
+    monkeypatch.setattr(
+        env,
+        "_run_red_command",
+        lambda command, timeout_s: type(
+            "CommandResult",
+            (),
+            {
+                "command": command,
+                "output": "red output",
+                "exit_code": 0,
+                "timed_out": False,
+                "duration_ms": 1,
+            },
+        )(),
+    )
+
+    result = env.step(action=type("Action", (), {"command": "date"})())
+
+    assert blue_defender.calls == 2
+    assert result.info["blue_actions"] == [
+        {
+            "kind": "llm_command",
+            "target": "repair-1",
+            "status": "applied",
+            "detail": "turn 1",
+        },
+        {
+            "kind": "llm_command",
+            "target": "repair-2",
+            "status": "applied",
+            "detail": "turn 2",
+        },
     ]
 
 
@@ -391,7 +449,7 @@ def test_llm_showdown_runs_one_defensive_command(tmp_path, monkeypatch):
     ]
 
 
-def test_blue_prompt_includes_runtime_contract_and_red_reasoning(tmp_path):
+def test_blue_prompt_includes_runtime_contract_without_red_reasoning(tmp_path):
     prompt = build_blue_prompt(
         metrics=SystemMetrics(
             gateway_success_rate=0.5,
@@ -402,13 +460,12 @@ def test_blue_prompt_includes_runtime_contract_and_red_reasoning(tmp_path):
         ),
         process_status={"gateway": "running pid=1"},
         red_command="echo '{\"db_write_delay_ms\":5000}' > /mesh/worker/config.json",
-        red_reasoning="slow worker writes",
         project_root=tmp_path,
         mesh_root=tmp_path / "mesh",
     )
 
-    assert "RED REASONING:" in prompt
-    assert "slow worker writes" in prompt
+    assert "RED REASONING:" not in prompt
+    assert "slow worker writes" not in prompt
     assert "Redis queue key: job_queue" in prompt
     assert "/tmp/gateway.log" in prompt
     assert "worker/config.json" in prompt

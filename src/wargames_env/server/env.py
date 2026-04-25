@@ -6,7 +6,11 @@ from pathlib import Path
 from uuid import uuid4
 
 from wargames_env.models import StepResult, WarGamesAction, WarGamesObservation
-from wargames_env.server.blue_defender import BlueDefender, select_blue_defender
+from wargames_env.server.blue_defender import (
+    BlueDefender,
+    BlueMode,
+    select_blue_defender,
+)
 from wargames_env.server.config_baseline import ConfigBaseline
 from wargames_env.server.metrics_poller import MetricsPoller
 from wargames_env.server.process_manager import ProcessManager
@@ -198,15 +202,19 @@ class WarGamesEnv:
         command_result = self._run_red_command(action.command, timeout_s=timeout)
         self.last_exit_code = command_result.exit_code
         metrics_after_red = self._snapshot_metrics()
-        blue_actions = self._blue_defender.tick(
-            red_command=command_result.command,
-            red_reasoning=getattr(action, "reasoning", None),
-            red_exit_code=command_result.exit_code,
-            process_manager=self._process_manager,
-            metrics_poller=self._metrics_poller,
-            project_root=self.project_root,
-            mesh_root=self.mesh_root,
-        )
+        blue_actions = []
+        blue_turns = 2 if self._blue_defender.mode == BlueMode.LLM_SHOWDOWN else 1
+        for _ in range(blue_turns):
+            blue_actions.extend(
+                self._blue_defender.tick(
+                    red_command=command_result.command,
+                    red_exit_code=command_result.exit_code,
+                    process_manager=self._process_manager,
+                    metrics_poller=self._metrics_poller,
+                    project_root=self.project_root,
+                    mesh_root=self.mesh_root,
+                )
+            )
         metrics_after_blue = self._snapshot_metrics()
         reward_breakdown = compute_red_reward(
             RewardContext(
