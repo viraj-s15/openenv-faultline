@@ -6,7 +6,7 @@ from __future__ import annotations
 def load_training_model(settings: dict):
     from unsloth import FastLanguageModel, PatchFastRL
 
-    PatchFastRL(algorithm="grpo", FastLanguageModel=FastLanguageModel)
+    PatchFastRL(algorithm="grpo_trainer", FastLanguageModel=FastLanguageModel)
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=settings["model"]["base_model"],
         max_seq_length=settings["model"]["max_seq_length"],
