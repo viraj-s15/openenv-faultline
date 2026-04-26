@@ -265,9 +265,7 @@ def run_model(
     red_provider: str = "openrouter",
     blue_provider: str = "openrouter",
     blue_model: str | None = None,
-    red_no_think: bool = True,
 ) -> Path:
-    os.environ["RED_NO_THINK"] = "true" if red_no_think else "false"
     _red_configurer = _RED_CONFIGURERS[red_provider]
     _blue_configurer = _BLUE_CONFIGURERS[blue_provider]
     blue = blue_model or model
@@ -297,7 +295,7 @@ def run_model(
         max_retries=1,
     )
     env = WarGamesEnv(project_root=Path.cwd(), mesh_root=Path.cwd() / "mesh")
-    messages = [{"role": "system", "content": inference.red_system_prompt()}]
+    messages = [{"role": "system", "content": inference.SYSTEM_PROMPT}]
     attempt_history: list[dict[str, Any]] = []
     step_rows: list[dict[str, Any]] = []
     rewards: list[float] = []
@@ -488,13 +486,6 @@ def main() -> None:
     )
     parser.add_argument("--output-root", default="outputs")
     parser.add_argument("--timestamp", default=datetime.now().strftime("%Y%m%d_%H%M%S"))
-    parser.add_argument(
-        "--red-no-think",
-        dest="red_no_think",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Prepend Qwen3 `/no_think` to the Red system prompt (default: enabled). Use --no-red-no-think to disable.",
-    )
     args = parser.parse_args()
 
     red_provider = args.red_provider or args.provider or "openrouter"
@@ -510,7 +501,6 @@ def main() -> None:
             red_provider=red_provider,
             blue_provider=blue_provider,
             blue_model=args.blue_model,
-            red_no_think=args.red_no_think,
         )
 
 

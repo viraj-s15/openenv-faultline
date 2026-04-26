@@ -39,16 +39,28 @@ def test_parse_tasks_reads_csv(monkeypatch):
     ]
 
 
-def test_red_prompt_acknowledges_blue_defense():
-    assert "harden" in inference.SYSTEM_PROMPT
-    assert "restart" in inference.SYSTEM_PROMPT
-    assert "restore" in inference.SYSTEM_PROMPT
-    assert "sanitize" in inference.SYSTEM_PROMPT
+def test_red_prompt_is_aggressive():
+    assert "break it" in inference.SYSTEM_PROMPT
+    assert "outmaneuver Blue" in inference.SYSTEM_PROMPT
 
 
-def test_red_prompt_demands_a_command_every_turn():
-    assert "MUST return exactly one bash command" in inference.SYSTEM_PROMPT
-    assert "Never leave it empty" in inference.SYSTEM_PROMPT
+def test_red_prompt_mentions_process_kill_budget():
+    assert "kill, pkill, killall" in inference.SYSTEM_PROMPT
+    assert "ONCE per episode" in inference.SYSTEM_PROMPT
+
+
+def test_red_prompt_documents_command_chaining():
+    assert "chain multiple commands" in inference.SYSTEM_PROMPT
+    for op in ("`;`", "`&&`", "`||`"):
+        assert op in inference.SYSTEM_PROMPT, op
+    assert "stdout+stderr" in inference.SYSTEM_PROMPT
+
+
+def test_red_prompt_does_not_leak_mesh_surface():
+    text = inference.SYSTEM_PROMPT.lower()
+    for forbidden in ("localhost:3000", "localhost:3001", "/mesh", "/process", "/verify", "registry.json"):
+        assert forbidden not in text, f"system prompt leaks mesh surface: {forbidden}"
+
 
 
 def test_kill_budget_block_reports_remaining_when_no_kill_used():
@@ -94,46 +106,8 @@ def test_build_prompt_surfaces_kill_budget_above_history():
     assert prompt.index("KILL BUDGET") < prompt.index("PREVIOUS ATTEMPTS:")
 
 
-def test_mesh_surface_block_lists_real_ports_and_routes():
-    block = inference.MESH_SURFACE_BLOCK
-    assert "localhost:3000" in block
-    assert "localhost:3001" in block
-    assert "localhost:6379" in block
-    assert "POST /process" in block
-    assert "POST /verify" in block
-    assert "Do not invent endpoints" in block
 
 
-def test_mesh_surface_block_does_not_leak_attack_vectors():
-    block = inference.MESH_SURFACE_BLOCK.lower()
-    for forbidden in ("flushall", "poison", "netem", "fork", "sigkill", "chaos"):
-        assert forbidden not in block, f"surface block leaked attack vector: {forbidden}"
-
-
-def test_red_prompt_allows_brief_recon():
-    assert "Brief recon" in inference.SYSTEM_PROMPT
-
-
-def test_build_prompt_surfaces_mesh_above_history():
-    obs = WarGamesObservation(
-        metrics=SystemMetrics(
-            gateway_success_rate=1.0,
-            gateway_p99_latency_ms=10.0,
-            queue_depth=0,
-            worker_restart_count=0,
-            consumer_stall_count=0,
-        ),
-        process_status={"gateway": "running"},
-        command_output="",
-    )
-    prompt = inference.build_prompt(obs, 1, "phase-2-blue-l0", [])
-    assert prompt.index("MESH SURFACE") < prompt.index("PREVIOUS ATTEMPTS:")
-    assert prompt.index("MESH SURFACE") < prompt.index("KILL BUDGET")
-
-
-def test_red_prompt_mentions_process_kill_budget():
-    assert "Direct process-kill commands" in inference.SYSTEM_PROMPT
-    assert "ONCE per episode" in inference.SYSTEM_PROMPT
 
 
 def test_run_episode_uses_server_state_max_steps(monkeypatch):
