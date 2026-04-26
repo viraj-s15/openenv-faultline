@@ -2,13 +2,36 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
 import yaml
 from huggingface_hub import HfApi
+from transformers import AutoTokenizer
 
 from training.publish.model_card import build_model_card_text
+
+
+def _ensure_tokenizer_chat_template(folder: Path, base_model: str | None) -> None:
+    tokenizer_cfg_path = folder / "tokenizer_config.json"
+    if not tokenizer_cfg_path.exists() or not base_model:
+        return
+
+    tokenizer_cfg = json.loads(tokenizer_cfg_path.read_text(encoding="utf-8"))
+    if tokenizer_cfg.get("chat_template"):
+        return
+
+    base_tokenizer = AutoTokenizer.from_pretrained(base_model, trust_remote_code=True)
+    chat_template = getattr(base_tokenizer, "chat_template", None)
+    if not isinstance(chat_template, str) or not chat_template.strip():
+        return
+
+    tokenizer_cfg["chat_template"] = chat_template
+    tokenizer_cfg_path.write_text(
+        json.dumps(tokenizer_cfg, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
 
 
 def _load_publish_config(path: str | Path | None) -> dict:
@@ -48,6 +71,11 @@ def push_adapter(
     folder = Path(folder_path)
     if not folder.exists():
         raise FileNotFoundError(f"adapter folder not found: {folder}")
+
+    if base_model:
+        base_tokenizer = AutoTokenizer.from_pretrained(base_model, trust_remote_code=True)
+        base_tokenizer.save_pretrained(folder)
+        _ensure_tokenizer_chat_template(folder, base_model)
 
     card_text = build_model_card_text(
         repo_id=repo_id,

@@ -2,13 +2,35 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from typing import Any
 
 import yaml
+from transformers import AutoTokenizer
 
 from training.publish.model_card import build_model_card_text
+
+
+def _ensure_tokenizer_chat_template(folder: Path, tokenizer) -> None:
+    tokenizer_cfg_path = folder / "tokenizer_config.json"
+    if not tokenizer_cfg_path.exists():
+        return
+
+    chat_template = getattr(tokenizer, "chat_template", None)
+    if not isinstance(chat_template, str) or not chat_template.strip():
+        return
+
+    tokenizer_cfg = json.loads(tokenizer_cfg_path.read_text(encoding="utf-8"))
+    if tokenizer_cfg.get("chat_template") == chat_template:
+        return
+
+    tokenizer_cfg["chat_template"] = chat_template
+    tokenizer_cfg_path.write_text(
+        json.dumps(tokenizer_cfg, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
 
 
 def _load_publish_config(path: str | Path | None) -> dict:
@@ -31,7 +53,7 @@ def export_merged_model(
     """
     import torch
     from peft import PeftModel
-    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from transformers import AutoModelForCausalLM
 
     if torch_dtype is None:
         torch_dtype = torch.bfloat16
@@ -45,7 +67,9 @@ def export_merged_model(
     peft_model = PeftModel.from_pretrained(model, str(adapter_path))
     merged = peft_model.merge_and_unload()
     merged.save_pretrained(output_dir, safe_serialization=True)
-    AutoTokenizer.from_pretrained(base_model).save_pretrained(output_dir)
+    tokenizer = AutoTokenizer.from_pretrained(base_model, trust_remote_code=True)
+    tokenizer.save_pretrained(output_dir)
+    _ensure_tokenizer_chat_template(Path(output_dir), tokenizer)
     return output_dir
 
 
