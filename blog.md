@@ -44,11 +44,13 @@ we built a dashboard to make viewing the agents in action easier, we can compare
 
 - Qwen-3-8B:
 <img width="3016" height="1718" alt="image" src="https://github.com/user-attachments/assets/9d68833e-3d23-4d20-81f3-6d3ba3af5050" />
+
 **Average Reward: 5.4%**
 
   
 - Faultline-Qwen-3-8B (Ours):
 <img width="3000" height="1660" alt="image" src="https://github.com/user-attachments/assets/3a3a6515-93c3-4ce5-b317-be9469cbe9d3" />
+
 **Average Reward: 8.9%** (a 65% relative improvement!)
 
   
