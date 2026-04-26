@@ -19,14 +19,14 @@ def test_chat_token_limit_uses_max_tokens_for_hf_router(monkeypatch):
     monkeypatch.delenv("CHAT_TOKEN_LIMIT_PARAM", raising=False)
     module = importlib.reload(inference)
 
-    assert module._chat_token_limit_kwargs() == {"max_tokens": 2048}
+    assert module._chat_token_limit_kwargs() == {"max_tokens": 4096}
 
 
 def test_chat_token_limit_uses_override(monkeypatch):
     monkeypatch.setenv("CHAT_TOKEN_LIMIT_PARAM", "max_completion_tokens")
     module = importlib.reload(inference)
 
-    assert module._chat_token_limit_kwargs() == {"max_completion_tokens": 2048}
+    assert module._chat_token_limit_kwargs() == {"max_completion_tokens": 4096}
 
 
 def test_parse_tasks_reads_csv(monkeypatch):
@@ -39,17 +39,21 @@ def test_parse_tasks_reads_csv(monkeypatch):
     ]
 
 
-def test_red_prompt_mentions_proactive_blue_defense():
-    assert "proactively harden" in inference.SYSTEM_PROMPT
-    assert "monitor" in inference.SYSTEM_PROMPT
+def test_red_prompt_acknowledges_blue_defense():
+    assert "harden" in inference.SYSTEM_PROMPT
+    assert "restart" in inference.SYSTEM_PROMPT
     assert "restore" in inference.SYSTEM_PROMPT
     assert "sanitize" in inference.SYSTEM_PROMPT
 
 
+def test_red_prompt_demands_a_command_every_turn():
+    assert "MUST return exactly one bash command" in inference.SYSTEM_PROMPT
+    assert "Never leave it empty" in inference.SYSTEM_PROMPT
+
+
 def test_red_prompt_mentions_process_kill_budget():
-    assert "Direct process-kill commands are limited to one use per episode" in (
-        inference.SYSTEM_PROMPT
-    )
+    assert "Direct process-kill commands" in inference.SYSTEM_PROMPT
+    assert "ONCE per episode" in inference.SYSTEM_PROMPT
 
 
 def test_run_episode_uses_server_state_max_steps(monkeypatch):

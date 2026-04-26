@@ -143,7 +143,7 @@ def parse_models(value: str) -> list[str]:
 
 
 def _apply_common_env(red_model: str, blue_model: str | None, max_steps: int) -> None:
-    max_tokens = os.getenv("MAX_COMPLETION_TOKENS", "2048")
+    max_tokens = os.getenv("MAX_COMPLETION_TOKENS", "4096")
     os.environ["MAX_COMPLETION_TOKENS"] = max_tokens
 
     os.environ["MODEL_NAME"] = red_model
