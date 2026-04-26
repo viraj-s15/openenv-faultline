@@ -11,7 +11,7 @@ short_description: Faultline — adversarial Red vs Blue on a live mesh
 
 > *"The only winning move is to learn."*
 
-Constant bugs and security regressions in distributed systems were one of our most persistent internal challenges at Fibr AI, that's what we tackled in Round 1. During that work, a passing observation stuck with us: Dario Amodei (Anthropic) once noted in a podcast that Claude had been trained for coding but had developed an unusually strong grasp of security. It wasn't designed in. It emerged.
+Constant bugs and security regressions in distributed systems were one of our most persistent internal challenges at Fibr AI — that's what we tackled in Round 1. During that work, a passing observation stuck with us: Dario Amodei (Anthropic) once noted in a podcast that Claude had been trained for coding but had developed an unusually strong grasp of security. It wasn't designed in. It emerged.
 
 That got us thinking. If a model can stumble into security intuition, what would happen if you *deliberately engineered an environment to maximize it*?
 
@@ -21,14 +21,22 @@ We tried to build that here. We call it **Faultline**.
 
 ## What It Is
 
-An adversarial training environment built around one question: *can a language model learn to attack a real distributed system?*
+The same environment, two valid roles: an agent that learns to attack, and an agent that learns to defend. The environment doesn't care which side you train — it measures damage and recovery in the same units. For this submission we focus on the **attacker**, trained end-to-end via GRPO.
 
-Two roles:
+Two roles the environment supports:
 
-- **The Attacker (Red)** — probes for vulnerabilities, relentlessly and creatively. Queue poisoning. Config corruption. Service cascade. Lock starvation. Raw bash. No guardrails.
-- **The Defender (Blue)** — responds. Restarts services, restores configs, clears poison, monitors metrics. Escalating curriculum from passive to active.
+- **The Attacker (Red)** — probes for vulnerabilities relentlessly. Queue poisoning, config corruption, service cascade, lock starvation. Raw bash. No guardrails.
+- **The Defender (Blue)** — responds. Restarts services, restores configs, clears poison, monitors metrics. Escalating curriculum from passive to reactive.
 
-Not a toy. Not a grid world. Real Redis, real HTTP routing, real logs — the same surface a human SRE would actually work in.
+The mesh the agents operate on:
+
+- **Gateway** (`:3000`) — HTTP orchestration layer. Routes requests, tracks success rate and p99 latency. The primary health signal.
+- **Auth** (`:3001`) — Authentication service with configurable delay. A latency injection target.
+- **Redis** (`:6379`) — Job queue and distributed lock store. Poisonable, floodable, starve-able.
+- **Worker** — Async job consumer. Reads from the Redis queue, writes to SQLite. Kill it and the queue backs up; corrupt the queue and it stalls silently.
+- **SQLite** — Persistence sink. Slow writes propagate back up the chain.
+
+Every component is live inside the container — real processes, real sockets, real failure modes. When the worker dies the queue depth climbs. When Auth slows the gateway p99 spikes. Attacks have to understand the system to do real damage.
 
 ---
 
