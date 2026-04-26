@@ -11,7 +11,7 @@ short_description: Faultline — adversarial Red vs Blue on a live mesh
 
 > *"The only winning move is to learn."*
 
-Our Round 1 submission was about debugging distributed systems. While working on that, one idea kept coming up: models trained for coding often seem to pick up useful security instincts along the way. That got us thinking — what if you built an environment specifically to train for that?
+Our Round 1 submission was about debugging distributed systems. While working on that, one idea kept coming up: models trained for coding often seem to pick up useful security instincts along the way. That got us thinking, what if you built an environment specifically to train for that?
 
 
 ## What it is
