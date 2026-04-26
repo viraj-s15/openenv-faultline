@@ -142,49 +142,67 @@ def parse_models(value: str) -> list[str]:
     return [model.strip() for model in value.split(",") if model.strip()]
 
 
-def _apply_common_env(model: str, max_steps: int) -> None:
-    os.environ["MODEL_NAME"] = model
-    os.environ["BLUE_MODEL_NAME"] = model
-    os.environ["MAX_COMPLETION_TOKENS"] = os.getenv("MAX_COMPLETION_TOKENS", "2048")
+def _apply_common_env(red_model: str, blue_model: str | None, max_steps: int) -> None:
+    max_tokens = os.getenv("MAX_COMPLETION_TOKENS", "2048")
+    os.environ["MAX_COMPLETION_TOKENS"] = max_tokens
+
+    os.environ["MODEL_NAME"] = red_model
+    blue = blue_model or red_model
+    os.environ["BLUE_MODEL_NAME"] = blue
 
     tasks.TASK_CONFIGS[TASK_NAME] = TaskConfig(TASK_NAME, max_steps)
-    inference.MODEL_NAME = model
+    inference.MODEL_NAME = red_model
     inference.MAX_STEPS_CAP = max_steps
-    inference.MAX_COMPLETION_TOKENS = int(os.environ["MAX_COMPLETION_TOKENS"])
+    inference.MAX_COMPLETION_TOKENS = int(max_tokens)
 
 
-def configure_openrouter(model: str, max_steps: int) -> None:
+def _configure_red_openrouter(model: str) -> None:
     key = os.getenv("OPENROUTER_API_KEY")
     if not key:
         raise RuntimeError("OPENROUTER_API_KEY must be set")
-
     os.environ["API_KEY"] = key
-    os.environ["BLUE_API_KEY"] = key
     os.environ["API_BASE_URL"] = "https://openrouter.ai/api/v1"
-    os.environ["BLUE_API_BASE_URL"] = "https://openrouter.ai/api/v1"
     os.environ["CHAT_TOKEN_LIMIT_PARAM"] = "max_tokens"
-
     inference.API_BASE_URL = os.environ["API_BASE_URL"]
     inference.API_KEY = os.environ["API_KEY"]
 
-    _apply_common_env(model, max_steps)
 
-
-def configure_hf(model: str, max_steps: int) -> None:
+def _configure_red_hf(model: str) -> None:
     key = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
     if not key:
         raise RuntimeError("HF_TOKEN (or API_KEY) must be set")
-
     os.environ["API_KEY"] = key
-    os.environ["BLUE_API_KEY"] = key
-    os.environ["API_BASE_URL"] = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
-    os.environ["BLUE_API_BASE_URL"] = os.getenv("BLUE_API_BASE_URL", os.environ["API_BASE_URL"])
-    os.environ["CHAT_TOKEN_LIMIT_PARAM"] = os.getenv("CHAT_TOKEN_LIMIT_PARAM", "max_tokens")
-
+    os.environ["API_BASE_URL"] = os.getenv(
+        "API_BASE_URL", "https://router.huggingface.co/v1"
+    )
+    os.environ["CHAT_TOKEN_LIMIT_PARAM"] = os.getenv(
+        "CHAT_TOKEN_LIMIT_PARAM", "max_tokens"
+    )
     inference.API_BASE_URL = os.environ["API_BASE_URL"]
     inference.API_KEY = os.environ["API_KEY"]
 
-    _apply_common_env(model, max_steps)
+
+def _configure_blue_openrouter(blue_model: str) -> None:
+    key = os.getenv("OPENROUTER_API_KEY")
+    if not key:
+        raise RuntimeError("OPENROUTER_API_KEY must be set")
+    os.environ["BLUE_API_KEY"] = key
+    os.environ["BLUE_API_BASE_URL"] = "https://openrouter.ai/api/v1"
+
+
+def _configure_blue_hf(blue_model: str) -> None:
+    key = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
+    if not key:
+        raise RuntimeError("HF_TOKEN (or API_KEY) must be set")
+    os.environ["BLUE_API_KEY"] = key
+    os.environ["BLUE_API_BASE_URL"] = os.getenv(
+        "BLUE_API_BASE_URL",
+        os.getenv("API_BASE_URL", "https://router.huggingface.co/v1"),
+    )
+
+
+_RED_CONFIGURERS = {"openrouter": _configure_red_openrouter, "hf": _configure_red_hf}
+_BLUE_CONFIGURERS = {"openrouter": _configure_blue_openrouter, "hf": _configure_blue_hf}
 
 
 def reset_redis() -> None:
@@ -238,16 +256,38 @@ def write_csv(path: Path, fieldnames: list[str], rows: list[dict[str, Any]]) -> 
         writer.writerows(rows)
 
 
-def run_model(model: str, max_steps: int, output_root: Path, timestamp: str, *, provider: str = "openrouter", red_no_think: bool = True) -> Path:
+def run_model(
+    model: str,
+    max_steps: int,
+    output_root: Path,
+    timestamp: str,
+    *,
+    red_provider: str = "openrouter",
+    blue_provider: str = "openrouter",
+    blue_model: str | None = None,
+    red_no_think: bool = True,
+) -> Path:
     os.environ["RED_NO_THINK"] = "true" if red_no_think else "false"
-    configure = configure_openrouter if provider == "openrouter" else configure_hf
-    output_dir = output_root / f"docker_{provider}_{folder_label(model)}_{timestamp}"
+    _red_configurer = _RED_CONFIGURERS[red_provider]
+    _blue_configurer = _BLUE_CONFIGURERS[blue_provider]
+    blue = blue_model or model
+    provider_tag = (
+        f"{red_provider}_vs_{blue_provider}"
+        if red_provider != blue_provider
+        else red_provider
+    )
+    output_dir = (
+        output_root / f"docker_{provider_tag}_{folder_label(model)}_{timestamp}"
+    )
+
     output_dir.mkdir(parents=True, exist_ok=True)
     summary_path = output_dir / "summary.csv"
     steps_path = output_dir / "steps.csv"
     log_path = output_dir / "red_vs_blue.log"
 
-    configure(model, max_steps)
+    _apply_common_env(model, blue, max_steps)
+    _red_configurer(model)
+    _blue_configurer(blue)
     reset_redis()
 
     client = OpenAI(
@@ -270,7 +310,7 @@ def run_model(model: str, max_steps: int, output_root: Path, timestamp: str, *, 
         contextlib.redirect_stdout(Tee(sys.stdout, log_file)),
     ):
         print(
-            f"[START] task={TASK_NAME} env=docker red_model={model} blue_model={model} max_steps={max_steps}",
+            f"[START] task={TASK_NAME} env=docker red_model={model}({red_provider}) blue_model={blue}({blue_provider}) max_steps={max_steps}",
             flush=True,
         )
         try:
@@ -296,6 +336,7 @@ def run_model(model: str, max_steps: int, output_root: Path, timestamp: str, *, 
                 raw_response = inference._assistant_message_text(
                     completion.choices[0].message
                 )
+                print(raw_response)
                 red_command, red_reasoning = inference.extract_action_payload(
                     raw_response
                 )
@@ -333,7 +374,7 @@ def run_model(model: str, max_steps: int, output_root: Path, timestamp: str, *, 
                 row = {
                     "task_name": TASK_NAME,
                     "red_model": model,
-                    "blue_model": model,
+                    "blue_model": blue,
                     "step": next_step,
                     "reward": f"{result.reward:.4f}",
                     "done": str(done).lower(),
@@ -400,7 +441,7 @@ def run_model(model: str, max_steps: int, output_root: Path, timestamp: str, *, 
         {
             "task_name": TASK_NAME,
             "red_model": model,
-            "blue_model": model,
+            "blue_model": blue,
             "max_steps_cap": max_steps,
             "actual_steps": step,
             "success": str(bool(done and episode_score(rewards) >= 0.95)).lower(),
@@ -422,9 +463,29 @@ def run_model(model: str, max_steps: int, output_root: Path, timestamp: str, *, 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--models", required=True)
+    parser.add_argument("--models", required=True, help="Comma-separated red model(s)")
+    parser.add_argument(
+        "--blue-model", default=None, help="Blue model (defaults to red model)"
+    )
     parser.add_argument("--max-steps", type=int, default=30)
-    parser.add_argument("--provider", choices=["openrouter", "hf"], default="openrouter", help="LLM provider (default: openrouter)")
+    parser.add_argument(
+        "--provider",
+        choices=["openrouter", "hf"],
+        default=None,
+        help="Provider for both red and blue (overridden by --red-provider/--blue-provider)",
+    )
+    parser.add_argument(
+        "--red-provider",
+        choices=["openrouter", "hf"],
+        default=None,
+        help="Provider for red model (default: openrouter)",
+    )
+    parser.add_argument(
+        "--blue-provider",
+        choices=["openrouter", "hf"],
+        default=None,
+        help="Provider for blue model (default: openrouter)",
+    )
     parser.add_argument("--output-root", default="outputs")
     parser.add_argument("--timestamp", default=datetime.now().strftime("%Y%m%d_%H%M%S"))
     parser.add_argument(
@@ -436,6 +497,9 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    red_provider = args.red_provider or args.provider or "openrouter"
+    blue_provider = args.blue_provider or args.provider or "openrouter"
+
     output_root = Path(args.output_root)
     for model in parse_models(args.models):
         run_model(
@@ -443,7 +507,9 @@ def main() -> None:
             max_steps=args.max_steps,
             output_root=output_root,
             timestamp=args.timestamp,
-            provider=args.provider,
+            red_provider=red_provider,
+            blue_provider=blue_provider,
+            blue_model=args.blue_model,
             red_no_think=args.red_no_think,
         )
 
