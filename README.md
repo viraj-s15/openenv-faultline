@@ -11,7 +11,7 @@ short_description: Faultline — adversarial Red vs Blue on a live mesh
 
 > *"The only winning move is to learn."*
 
-Constant bugs and security regressions in distributed systems were one of our most persistent internal challenges at Fibr AI — that's what we tackled in Round 1. During that work, a passing observation stuck with us: Dario Amodei (Anthropic) once noted in a podcast that Claude had been trained for coding but had developed an unusually strong grasp of security. It wasn't designed in. It emerged.
+Constant bugs and security regressions in distributed systems were one of our most persistent internal challenges at Fibr AI — that's what we tackled in Round 1. During that work, a passing observation stuck with us: Dario Amodei (Anthropic) once noted in a podcast that Mythos had been trained for coding but had developed an unusually strong grasp of security. It wasn't designed in. It emerged.
 
 That got us thinking. If a model can stumble into security intuition, what would happen if you *deliberately engineered an environment to maximize it*?
 
