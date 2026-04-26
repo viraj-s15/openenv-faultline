@@ -142,6 +142,17 @@ def parse_models(value: str) -> list[str]:
     return [model.strip() for model in value.split(",") if model.strip()]
 
 
+def _apply_common_env(model: str, max_steps: int) -> None:
+    os.environ["MODEL_NAME"] = model
+    os.environ["BLUE_MODEL_NAME"] = model
+    os.environ["MAX_COMPLETION_TOKENS"] = os.getenv("MAX_COMPLETION_TOKENS", "2048")
+
+    tasks.TASK_CONFIGS[TASK_NAME] = TaskConfig(TASK_NAME, max_steps)
+    inference.MODEL_NAME = model
+    inference.MAX_STEPS_CAP = max_steps
+    inference.MAX_COMPLETION_TOKENS = int(os.environ["MAX_COMPLETION_TOKENS"])
+
+
 def configure_openrouter(model: str, max_steps: int) -> None:
     key = os.getenv("OPENROUTER_API_KEY")
     if not key:
@@ -151,17 +162,29 @@ def configure_openrouter(model: str, max_steps: int) -> None:
     os.environ["BLUE_API_KEY"] = key
     os.environ["API_BASE_URL"] = "https://openrouter.ai/api/v1"
     os.environ["BLUE_API_BASE_URL"] = "https://openrouter.ai/api/v1"
-    os.environ["MODEL_NAME"] = model
-    os.environ["BLUE_MODEL_NAME"] = model
     os.environ["CHAT_TOKEN_LIMIT_PARAM"] = "max_tokens"
-    os.environ["MAX_COMPLETION_TOKENS"] = os.getenv("MAX_COMPLETION_TOKENS", "2048")
 
-    tasks.TASK_CONFIGS[TASK_NAME] = TaskConfig(TASK_NAME, max_steps)
     inference.API_BASE_URL = os.environ["API_BASE_URL"]
     inference.API_KEY = os.environ["API_KEY"]
-    inference.MODEL_NAME = model
-    inference.MAX_STEPS_CAP = max_steps
-    inference.MAX_COMPLETION_TOKENS = int(os.environ["MAX_COMPLETION_TOKENS"])
+
+    _apply_common_env(model, max_steps)
+
+
+def configure_hf(model: str, max_steps: int) -> None:
+    key = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
+    if not key:
+        raise RuntimeError("HF_TOKEN (or API_KEY) must be set")
+
+    os.environ["API_KEY"] = key
+    os.environ["BLUE_API_KEY"] = key
+    os.environ["API_BASE_URL"] = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+    os.environ["BLUE_API_BASE_URL"] = os.getenv("BLUE_API_BASE_URL", os.environ["API_BASE_URL"])
+    os.environ["CHAT_TOKEN_LIMIT_PARAM"] = os.getenv("CHAT_TOKEN_LIMIT_PARAM", "max_tokens")
+
+    inference.API_BASE_URL = os.environ["API_BASE_URL"]
+    inference.API_KEY = os.environ["API_KEY"]
+
+    _apply_common_env(model, max_steps)
 
 
 def reset_redis() -> None:
@@ -215,14 +238,15 @@ def write_csv(path: Path, fieldnames: list[str], rows: list[dict[str, Any]]) -> 
         writer.writerows(rows)
 
 
-def run_model(model: str, max_steps: int, output_root: Path, timestamp: str) -> Path:
-    output_dir = output_root / f"docker_openrouter_{folder_label(model)}_{timestamp}"
+def run_model(model: str, max_steps: int, output_root: Path, timestamp: str, *, provider: str = "openrouter") -> Path:
+    configure = configure_openrouter if provider == "openrouter" else configure_hf
+    output_dir = output_root / f"docker_{provider}_{folder_label(model)}_{timestamp}"
     output_dir.mkdir(parents=True, exist_ok=True)
     summary_path = output_dir / "summary.csv"
     steps_path = output_dir / "steps.csv"
     log_path = output_dir / "red_vs_blue.log"
 
-    configure_openrouter(model, max_steps)
+    configure(model, max_steps)
     reset_redis()
 
     client = OpenAI(
@@ -399,6 +423,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--models", required=True)
     parser.add_argument("--max-steps", type=int, default=30)
+    parser.add_argument("--provider", choices=["openrouter", "hf"], default="openrouter", help="LLM provider (default: openrouter)")
     parser.add_argument("--output-root", default="outputs")
     parser.add_argument("--timestamp", default=datetime.now().strftime("%Y%m%d_%H%M%S"))
     args = parser.parse_args()
@@ -410,6 +435,7 @@ def main() -> None:
             max_steps=args.max_steps,
             output_root=output_root,
             timestamp=args.timestamp,
+            provider=args.provider,
         )
 
 
