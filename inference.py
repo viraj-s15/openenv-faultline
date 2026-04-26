@@ -60,8 +60,6 @@ Respond with compact JSON where `command` is required: {"command":"<bash command
 No markdown. No explanation outside JSON."""
 
 
-
-
 TASK_SYMPTOMS: dict[str, tuple[str, ...]] = {
     "phase-2-blue-l0": (
         "No Blue defense is active.",
@@ -92,7 +90,7 @@ TASK_SYMPTOMS: dict[str, tuple[str, ...]] = {
 
 class WarGamesEnvClient:
     def __init__(self, base_url: str) -> None:
-        self._client = httpx.Client(base_url=base_url, timeout=45.0)
+        self._client = httpx.Client(base_url=base_url, timeout=180.0)
 
     def close(self) -> None:
         self._client.close()
@@ -295,7 +293,6 @@ def _attempt_history_block(attempt_history: list[dict[str, Any]]) -> str:
         lines.append(line)
 
     return "\n".join(lines)
-
 
 
 def build_prompt(
