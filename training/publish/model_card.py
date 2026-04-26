@@ -11,11 +11,14 @@ def build_model_card_text(
     tags: tuple[str, ...] = ("grpo", "wargames", "red-team", "trl"),
 ) -> str:
     tag_block = "\n".join(f"- {tag}" for tag in tags)
+    library_name = "transformers" if artifact_kind == "merged" else "peft"
+    pipeline_tag_block = "pipeline_tag: text-generation\n" if artifact_kind == "merged" else ""
     return (
         "---\n"
         f"base_model: {base_model}\n"
         f"license: {license}\n"
-        "library_name: peft\n"
+        f"library_name: {library_name}\n"
+        f"{pipeline_tag_block}"
         "tags:\n"
         f"{tag_block}\n"
         "---\n\n"
