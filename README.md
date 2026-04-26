@@ -172,6 +172,6 @@ docs/
 ## Links
 
 - HF Space (live environment): https://huggingface.co/spaces/Veer15/wargames-env-train
-- W&B training run: https://wandb.ai/viraj-shah1503-none/faultline/runs/r4xtdrzj
+- W&B training run: https://api.wandb.ai/links/viraj-shah1503-none/l5wy9mu5
 - Trained adapter: https://huggingface.co/Veer15/wargames-red-qwen3-8b-lora
 - Merged model: https://huggingface.co/Veer15/wargames-red-qwen3-8b
