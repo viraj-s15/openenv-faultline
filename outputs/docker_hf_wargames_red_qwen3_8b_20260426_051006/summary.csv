@@ -1,0 +1,2 @@
+task_name,red_model,blue_model,max_steps_cap,actual_steps,success,final_score,max_reward,avg_reward,error,steps_csv,log_path
+phase-2-blue-llm-showdown,Veer15/wargames-red-qwen3-8b,Veer15/wargames-red-qwen3-8b,30,17,false,0.3247,0.3247,0.0659,APITimeoutError: Request timed out.,outputs/docker_hf_wargames_red_qwen3_8b_20260426_051006/steps.csv,outputs/docker_hf_wargames_red_qwen3_8b_20260426_051006/red_vs_blue.log
