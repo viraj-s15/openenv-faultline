@@ -39,6 +39,29 @@ for 60 training steps and $60, I think that's a pretty good result.
 
 ---
 
+## dashboard
+we built a dashboard to make viewing the agents in action easier, we can compare the average run for a few models including the original Qwen-3-8B and the Faultline-Qwen-3-8B:
+
+- Qwen-3-8B:
+<img width="3016" height="1718" alt="image" src="https://github.com/user-attachments/assets/9d68833e-3d23-4d20-81f3-6d3ba3af5050" />
+
+  
+- Faultline-Qwen-3-8B:
+<img width="3000" height="1660" alt="image" src="https://github.com/user-attachments/assets/3a3a6515-93c3-4ce5-b317-be9469cbe9d3" />
+
+  
+- Claude-Sonnet-4.6:
+<img width="2996" height="1650" alt="image" src="https://github.com/user-attachments/assets/2b61a2c4-f000-49b9-b3ed-df193f404672" />
+
+  
+- llama-3.1-8b-instruct:
+<img width="3012" height="1652" alt="image" src="https://github.com/user-attachments/assets/3005f55b-39bf-4e2b-931e-4e952f114b6c" />
+
+- qwen/qwen3.5-9b:
+<img width="3002" height="1660" alt="image" src="https://github.com/user-attachments/assets/0b14efc8-a01c-4fb3-a388-3fa6e20469c3" />
+
+You can view the dashboard [here](https://openenv-faultline.pages.dev/#/).
+
 ## designing the system under attack
 
 we wanted something that behaves like a real distributed system but is small enough to spin up cheaply inside a container. the mesh has four moving parts:
