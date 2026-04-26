@@ -11,8 +11,15 @@ Two modes:
 from __future__ import annotations
 
 import json
+import re
 
 NO_COMMAND_PROVIDED = "echo NO_COMMAND_PROVIDED"
+
+# Qwen3 emits the chain-of-thought between `<think>` and `</think>` before the
+# JSON answer. The strict parser tolerates a single leading thinking block so
+# the format reward measures whether the model produced valid JSON *after*
+# thinking, not whether it suppressed the thinking tag entirely.
+_THINK_BLOCK_RE = re.compile(r"\A\s*<think>.*?</think>\s*", re.DOTALL)
 
 
 class ActionParseError(ValueError):
@@ -40,10 +47,12 @@ def parse_model_command(text: str) -> str:
 def parse_model_command_strict(text: str) -> str:
     """Strict variant: requires `{"command": "<bash>"}` JSON, no prose, no fallback.
 
-    Returns the bash command. Raises `ActionParseError` on any deviation so the
-    caller (training rollout) can record the failure as a real signal.
+    A leading `<think>...</think>` block (Qwen3 thinking format) is stripped
+    before JSON parsing. Returns the bash command. Raises `ActionParseError` on
+    any other deviation so the caller (training rollout) can record the failure
+    as a real signal.
     """
-    stripped = text.strip()
+    stripped = _THINK_BLOCK_RE.sub("", text, count=1).strip()
     if not stripped:
         raise ActionParseError("empty completion")
 
