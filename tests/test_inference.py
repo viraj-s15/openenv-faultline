@@ -94,6 +94,43 @@ def test_build_prompt_surfaces_kill_budget_above_history():
     assert prompt.index("KILL BUDGET") < prompt.index("PREVIOUS ATTEMPTS:")
 
 
+def test_mesh_surface_block_lists_real_ports_and_routes():
+    block = inference.MESH_SURFACE_BLOCK
+    assert "localhost:3000" in block
+    assert "localhost:3001" in block
+    assert "localhost:6379" in block
+    assert "POST /process" in block
+    assert "POST /verify" in block
+    assert "Do not invent endpoints" in block
+
+
+def test_mesh_surface_block_does_not_leak_attack_vectors():
+    block = inference.MESH_SURFACE_BLOCK.lower()
+    for forbidden in ("flushall", "poison", "netem", "fork", "sigkill", "chaos"):
+        assert forbidden not in block, f"surface block leaked attack vector: {forbidden}"
+
+
+def test_red_prompt_allows_brief_recon():
+    assert "Brief recon" in inference.SYSTEM_PROMPT
+
+
+def test_build_prompt_surfaces_mesh_above_history():
+    obs = WarGamesObservation(
+        metrics=SystemMetrics(
+            gateway_success_rate=1.0,
+            gateway_p99_latency_ms=10.0,
+            queue_depth=0,
+            worker_restart_count=0,
+            consumer_stall_count=0,
+        ),
+        process_status={"gateway": "running"},
+        command_output="",
+    )
+    prompt = inference.build_prompt(obs, 1, "phase-2-blue-l0", [])
+    assert prompt.index("MESH SURFACE") < prompt.index("PREVIOUS ATTEMPTS:")
+    assert prompt.index("MESH SURFACE") < prompt.index("KILL BUDGET")
+
+
 def test_red_prompt_mentions_process_kill_budget():
     assert "Direct process-kill commands" in inference.SYSTEM_PROMPT
     assert "ONCE per episode" in inference.SYSTEM_PROMPT
