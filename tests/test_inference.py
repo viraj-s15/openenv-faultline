@@ -51,6 +51,49 @@ def test_red_prompt_demands_a_command_every_turn():
     assert "Never leave it empty" in inference.SYSTEM_PROMPT
 
 
+def test_kill_budget_block_reports_remaining_when_no_kill_used():
+    block = inference._kill_budget_block([])
+    assert "1 remaining" in block
+
+    block = inference._kill_budget_block(
+        [{"step": 1, "command": "redis-cli FLUSHALL"}]
+    )
+    assert "1 remaining" in block
+
+
+def test_kill_budget_block_reports_spent_after_direct_kill():
+    history = [
+        {"step": 1, "command": "ls -la"},
+        {"step": 2, "command": "kill -9 $(pgrep -f worker)"},
+        {"step": 3, "command": "curl http://localhost:8080/"},
+    ]
+    block = inference._kill_budget_block(history)
+    assert "spent on step 2" in block
+    assert "will be rejected" in block
+
+
+def test_kill_budget_block_detects_pkill_killall_and_xargs():
+    for cmd in ("pkill -f gateway", "killall worker", "pgrep worker | xargs kill"):
+        block = inference._kill_budget_block([{"step": 1, "command": cmd}])
+        assert "spent on step 1" in block, cmd
+
+
+def test_build_prompt_surfaces_kill_budget_above_history():
+    obs = WarGamesObservation(
+        metrics=SystemMetrics(
+            gateway_success_rate=1.0,
+            gateway_p99_latency_ms=10.0,
+            queue_depth=0,
+            worker_restart_count=0,
+            consumer_stall_count=0,
+        ),
+        process_status={"gateway": "running"},
+        command_output="",
+    )
+    prompt = inference.build_prompt(obs, 1, "phase-2-blue-l0", [])
+    assert prompt.index("KILL BUDGET") < prompt.index("PREVIOUS ATTEMPTS:")
+
+
 def test_red_prompt_mentions_process_kill_budget():
     assert "Direct process-kill commands" in inference.SYSTEM_PROMPT
     assert "ONCE per episode" in inference.SYSTEM_PROMPT

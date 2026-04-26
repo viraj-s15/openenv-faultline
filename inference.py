@@ -21,6 +21,10 @@ MAX_STEPS_CAP = int(os.getenv("MAX_STEPS", "0"))
 TEMPERATURE = float(os.getenv("TEMPERATURE", "0.2"))
 MAX_COMPLETION_TOKENS = int(os.getenv("MAX_COMPLETION_TOKENS", "4096"))
 NO_COMMAND_PROVIDED_SENTINEL = "echo NO_COMMAND_PROVIDED"
+
+_DIRECT_PROCESS_KILL_PATTERN = re.compile(
+    r"(^|[;&|]\s*)(/bin/)?(kill|pkill|killall)\b|xargs\s+(-r\s+)?kill\b"
+)
 DEFAULT_TASKS = [
     "phase-2-blue-l0",
     "phase-2-blue-l1",
@@ -277,6 +281,17 @@ def _task_symptom_block(task_name: str) -> str:
     return "\n".join(f"- {symptom}" for symptom in symptoms)
 
 
+def _kill_budget_block(attempt_history: list[dict[str, Any]]) -> str:
+    for attempt in attempt_history:
+        command = str(attempt.get("command") or "")
+        if _DIRECT_PROCESS_KILL_PATTERN.search(command):
+            return (
+                f"KILL BUDGET: spent on step {attempt['step']} "
+                "(further kill/pkill/killall calls will be rejected; pick a different attack surface)"
+            )
+    return "KILL BUDGET: 1 remaining (use it on a high-value target; you only get one)"
+
+
 def _attempt_history_block(attempt_history: list[dict[str, Any]]) -> str:
     if not attempt_history:
         return "- none"
@@ -308,6 +323,7 @@ def build_prompt(
         f"Step {step_num}. Current system state:\n\n"
         "TASK CONTEXT:\n"
         f"{_task_symptom_block(task_name)}\n\n"
+        f"{_kill_budget_block(attempt_history)}\n\n"
         "PREVIOUS ATTEMPTS:\n"
         f"{_attempt_history_block(attempt_history)}\n\n"
         "METRICS:\n"
