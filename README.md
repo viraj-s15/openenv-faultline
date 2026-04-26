@@ -11,51 +11,49 @@ short_description: Faultline — adversarial Red vs Blue on a live mesh
 
 > *"The only winning move is to learn."*
 
-Distributed systems breaking under attack was one of Fibr AI's most persistent internal headaches — that's what we tackled in Round 1. While building that, something Dario Amodei (Anthropic) said in a podcast kept nagging at us: Mythos was trained for coding, but somewhere along the way it picked up an unusually strong intuition for security. Nobody planned that. It just emerged.
+Distributed systems breaking under attack was one of Fibr AI's most persistent internal headaches. That's what we tackled in Round 1. During that work, something Dario Amodei (Anthropic) said in a podcast stuck with us: Mythos was trained for coding, but had developed an unusually strong intuition for security. It wasn't designed in. It emerged.
 
-That got us thinking. If a model can stumble into security intuition, what happens if you build an environment specifically designed to force it?
 
-That's Faultline.
+## What it is
 
----
+Faultline is an adversarial environment for training agents on a live distributed system.
 
-## The idea
+The same environment supports two roles:
+- **Red** attacks the system.
+- **Blue** defends it.
 
-One environment, two roles. The same mesh, the same reward signal, the same bash interface — but you can put an attacker on one side or a defender on the other. Damage and recovery are measured in the same units, so the environment doesn't care which side you're training.
+For this hackathon, we train **Red**.
 
-For this submission we train the attacker.
+During training, Blue is not another model. It's a rules-based curriculum with five difficulty levels. That keeps the training loop stable and cheap. During inference, Blue can be another agent. That's the actual Red-vs-Blue setup.
 
-Red gets raw bash access to a live distributed service mesh and has to learn to actually break it — not guess at flags, not navigate a grid, but figure out that poisoning the Redis job queue with malformed JSON will stall the worker, which backs up the queue, which eventually takes down the gateway. That chain of causation has to be discovered. The model has to earn the reward.
+## The system
 
-During training, Blue is a rules-based curriculum — five escalating difficulty levels that go from doing nothing (L0) to event-triggered rollbacks the moment a metric drops (L4). This keeps training cost predictable and avoids the instability of training two models simultaneously. At inference, the scripted Blue is swapped out for a prompted LLM incident commander — that's the live-fire evaluation.
+The mesh is small, but it behaves like a real distributed system:
 
----
+- **Gateway** (`:3000`) handles HTTP traffic. We track success rate and p99 latency here.
+- **Auth** (`:3001`) handles authentication and has configurable delay.
+- **Redis** (`:6379`) is the job queue and distributed lock store.
+- **Worker** consumes jobs from Redis and writes results to SQLite.
+- **SQLite** is the persistence layer.
 
-## The mesh
+Those pieces interact in ways the model has to learn. Slow Auth and gateway latency spikes. Kill the Worker and queue depth grows. Poison Redis and the Worker stalls.
 
-Everything runs live inside the container:
+## What the agent can do
 
-- **Gateway** (`:3000`) — the HTTP orchestration layer. Tracks success rate and p99 latency. If this goes red, the episode is over.
-- **Auth** (`:3001`) — authentication with configurable delay. Slow it down and the gateway p99 starts climbing before anyone notices.
-- **Redis** (`:6379`) — job queue and distributed lock store. Push broken JSON into the queue and the worker stalls silently. Flood it and locks pile up.
-- **Worker** — reads from the Redis queue, writes to SQLite. Kill it and the queue depth starts climbing. Corrupt what it reads and it dies on its own after restart.
-- **SQLite** — the persistence sink. Slow writes propagate back up.
-
-When the worker dies the queue backs up. When Auth slows the gateway p99 spikes. The reward function sees all of it.
-
----
-
-## What the agent does
-
-One action per step: a bash command.
+One step is one bash command.
 
 ```json
 {"command": "redis-cli LPUSH job_queue '{broken'"}
 ```
 
-The environment runs it with `subprocess.run(command, shell=True)`. Read logs, inspect Redis, corrupt a config, kill a process, cover tracks — anything a shell user can do. The observation comes back with the command output, current metrics, and episode state.
+The environment executes that command with `subprocess.run(command, shell=True)` inside the container. The agent can inspect logs, read configs, poison Redis, kill processes, or clean up its traces.
 
-Reward is dense per-step, in `[0, 1]`:
+The observation includes:
+- command output
+- current system metrics
+- episode state
+
+Reward is dense per step, in `[0, 1]`:
 
 | Component | What it measures |
 |---|---|
@@ -66,35 +64,31 @@ Reward is dense per-step, in `[0, 1]`:
 | `no_op_penalty` | Metrics didn't move |
 | `repeat_penalty` | Repeated a recent command |
 
-The stealth bonus is the part that forces real learning. Breaking things is easy. Breaking them in a way that survives the defender's next move requires understanding the system.
-
----
+The important part is `stealth_bonus`. It's not enough to break the system. The damage has to survive the defender's response.
 
 ## Training
 
-Red is trained with GRPO on Qwen3-8B, LoRA rank 16. The training loop connects directly to the live environment — no static dataset, no precomputed rewards. Four bash commands per rollout, four generations per group for advantage estimation.
+We train Red with GRPO on Qwen3-8B using LoRA rank 16. The loop talks directly to the live environment. No static dataset. No precomputed rewards.
 
-During training Blue is the scripted curriculum:
+Blue during training is the scripted curriculum:
 
 | Level | What it does |
 |---|---|
-| L0 | Nothing. The system is naked. |
+| L0 | Nothing. |
 | L1 | Restarts crashed services every 5 seconds. |
-| L2 | L1 plus a config watchdog that detects and restores modified configs. |
-| L3 | L2 plus queue sanitizer and stale lock cleaner. |
-| L4 | Event-triggered rollback the moment a metric crosses a threshold. |
+| L2 | L1 + restores modified configs. |
+| L3 | L2 + sanitizes the queue and clears stale locks. |
+| L4 | Rolls back as soon as metrics cross thresholds. |
 
-L4 is the target. To get reward at L4 the model has to coordinate multiple attack vectors faster than the rule-based defender can respond — spike latency while simultaneously taking down Auth, for example, so the rollback triggers on the wrong root cause.
+L4 is the target.
 
-Training runs on HF Jobs (h200). The full pipeline auto-publishes the LoRA adapter and a merged model to HF Hub on completion.
+Training runs on HF Jobs (h200). On completion, the job publishes both the LoRA adapter and a merged model to HF Hub.
 
-One thing worth knowing about GRPO: loss is not a useful progress metric. It's a policy-gradient surrogate and it doesn't decrease as the model improves. Watch `reward/mean`, `reward_std` (if this collapses to zero GRPO has nothing to learn from), and `completions/mean_length` (sudden drop means the model learned to say nothing).
-
----
+One GRPO-specific note: loss is not the metric to watch. The useful signals are `reward/mean`, `reward_std`, and `completions/mean_length`. If `reward_std` collapses to zero, GRPO has no advantage signal to learn from.
 
 ## Results
 
-*W&B run `r4xtdrzj` is in progress. Full reward curves, before/after transcripts, and the Red vs Blue LLM showdown log will be here on completion.*
+*W&B run `r4xtdrzj` is still running. Reward curves, before/after transcripts, and the Red-vs-Blue inference transcript go here once training finishes.*
 
 Early signal at step 4/60:
 
@@ -105,15 +99,13 @@ Early signal at step 4/60:
 | env reward mean | 0.34 | 0.57 |
 | step errors | 0 | 0 |
 
-`reward_std` going from near-zero to 0.48 in four steps means the model is already generating meaningfully different outputs — GRPO has a real signal to work with.
+The main takeaway so far is that `reward_std` moved off zero quickly. The model is already producing meaningfully different actions, which means GRPO has signal to work with.
 
----
+## Why this matters
 
-## Why it matters
+Security intuition in current models is mostly accidental. Faultline is an attempt to train for it directly.
 
-Security intuition in LLMs right now is almost entirely accidental. Models pick it up from code and CVE writeups in pretraining, but nobody has built an environment specifically to develop it through interaction.
-
-Faultline is a bet that the capability gap here is mostly about environment design, not model scale. If a fine-tuned 8B model can learn to find the interaction between a misconfigured auth delay and a Redis lock timeout in 60 training steps on a $13 compute budget, that's worth knowing.
+If an 8B model can learn useful attack behavior on a live service mesh in 60 steps on roughly a $13 budget, that says the missing piece may be environment design more than model scale.
 
 ---
 
