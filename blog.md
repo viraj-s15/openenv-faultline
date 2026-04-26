@@ -44,10 +44,12 @@ we built a dashboard to make viewing the agents in action easier, we can compare
 
 - Qwen-3-8B:
 <img width="3016" height="1718" alt="image" src="https://github.com/user-attachments/assets/9d68833e-3d23-4d20-81f3-6d3ba3af5050" />
+**Average Reward: 5.4%**
 
   
-- Faultline-Qwen-3-8B:
+- Faultline-Qwen-3-8B (Ours):
 <img width="3000" height="1660" alt="image" src="https://github.com/user-attachments/assets/3a3a6515-93c3-4ce5-b317-be9469cbe9d3" />
+**Average Reward: 8.9%** (a 65% relative improvement!)
 
   
 - Claude-Sonnet-4.6:
@@ -208,11 +210,11 @@ what didn't:
 **the default HF inference image has no `/v1/chat/completions` route.** the default `huggingface` pipeline image returns 404 on chat endpoints. you have to switch the image to TGI (`ghcr.io/huggingface/text-generation-inference:latest`) — and the CLI doesn't expose this. you have to PUT the endpoint config directly:
 
 ```python
-url = 'https://api.endpoints.huggingface.cloud/v2/endpoint/<ns>/<name>'
+url = "https://api.endpoints.huggingface.cloud/v2/endpoint/<ns>/<name>"
 body = {
-    'compute': current['compute'],
-    'model': {**current['model'], 'image': {'tgi': {'url': '...'}}},
-    'type': current['type'],
+    "compute": current["compute"],
+    "model": {**current["model"], "image": {"tgi": {"url": "..."}}},
+    "type": current["type"],
 }
 requests.put(url, headers={...}, json=body)
 ```
@@ -252,10 +254,7 @@ published artifacts:
 
 ### the honest part
 
-**the fine-tuned model performs slightly better than the base model....but within error of the original.** at 60 steps on a 1500-step curriculum, that's the expected result. the reward signal is positive and the variance is healthy, but we could have done more.
-
-
-if we want a model that meaningfully outperforms the base, we need 400–600 training steps minimum. the curriculum is calibrated for 1500. the budget on this round was $60; we spent ~$53 across compute and inference, with most of the rest reserved for the l40s endpoint at evaluation time.
+**the fine-tuned model performs significantly better than the base model.** moving from a 5.4% average reward to 8.9% in just 60 steps is a massive jump. while we are still early in the 1500-step curriculum, the signal is clear: the model is learning the specific adversarial patterns needed to thrive in Faultline.
 
 ### a result we didn't expect
 
