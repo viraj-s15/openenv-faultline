@@ -17,12 +17,14 @@ hf endpoints catalog ls | head -50
 hf endpoints deploy faultline-red \
   --repo Veer15/wargames-red-qwen3-8b \
   --task text-generation \
-  --framework vllm \
+  --framework pytorch \
   --accelerator gpu \
   --instance-size x1 \
   --instance-type nvidia-l4 \
   --vendor aws \
   --region us-east-1 \
+  --min-replica 0 \
+  --max-replica 1 \
   --scale-to-zero-timeout 15
 ```
 
