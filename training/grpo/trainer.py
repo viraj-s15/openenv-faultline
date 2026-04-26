@@ -31,6 +31,7 @@ from training.env_adapter.action_parser import (
     NO_COMMAND_PROVIDED,
     parse_model_command_strict,
 )
+from training.env_adapter.client import EnvUnavailableError
 from training.env_adapter.observation_formatter import build_red_prompt
 from training.grpo.config import build_grpo_config
 from training.grpo.reward_adapter import aggregate_episode_reward
@@ -269,8 +270,19 @@ def make_rollout_func(env_client, max_steps: int, tokenizer):
                     parse_error = str(exc)
                     command = NO_COMMAND_PROVIDED
 
-                result = env_client.step(command)
-                info = dict(result.info or {})
+                try:
+                    result = env_client.step(command)
+                    info = dict(result.info or {})
+                    step_reward = result.reward
+                    step_done = result.done
+                    next_observation = result.observation
+                except EnvUnavailableError as exc:
+                    # Env Space gave up after retry budget. End this episode with
+                    # a zero-reward dead step so the rest of the batch finishes.
+                    info = {"step_error": str(exc)}
+                    step_reward = 0.0
+                    step_done = True
+                    next_observation = observation
                 if parse_error is not None:
                     info["parse_error"] = parse_error
 
@@ -280,23 +292,23 @@ def make_rollout_func(env_client, max_steps: int, tokenizer):
                         prompt=initial_user_text if step_num == 1 else "<continuation>",
                         raw_completion=raw_completion,
                         command=command,
-                        reward=result.reward,
-                        done=result.done,
+                        reward=step_reward,
+                        done=step_done,
                         info=info,
                     )
                 )
-                rewards.append(result.reward)
+                rewards.append(step_reward)
                 history.append(
                     {
                         "step": step_num,
                         "command": command,
-                        "output": result.observation.command_output,
-                        "error": info.get("error") or parse_error,
+                        "output": next_observation.command_output,
+                        "error": info.get("error") or info.get("step_error") or parse_error,
                     }
                 )
-                observation = result.observation
+                observation = next_observation
 
-                if result.done or step_num == max_steps:
+                if step_done or step_num == max_steps:
                     break
 
                 next_user_text = build_red_prompt(
