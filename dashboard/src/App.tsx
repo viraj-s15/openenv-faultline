@@ -372,7 +372,14 @@ function Dashboard({ runId, onBack }: { runId: string; onBack: () => void }) {
 
           <div className="flex-1 flex flex-col gap-2 min-h-0 overflow-y-auto">
             <div className="panel p-2 flex-shrink-0">
-              <div style={{ color: C.slate400 }} className="text-[10px] font-semibold tracking-wider uppercase mb-1 px-1">REWARD %</div>
+              <div className="flex items-center justify-between mb-1 px-1">
+                <span style={{ color: C.slate400 }} className="text-[10px] font-semibold tracking-wider uppercase">REWARD %</span>
+                {log?.avg_reward != null && (
+                  <span style={{ color: C.emerald, fontSize: 10, fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
+                    AVG {(log.avg_reward * 100).toFixed(1)}%
+                  </span>
+                )}
+              </div>
               <MiniChart data={s.metricsHistory} dataKey="reward" color={C.emerald} type="line" yDomain={[0, 1]} />
             </div>
             <div className="panel p-2 flex-shrink-0">
