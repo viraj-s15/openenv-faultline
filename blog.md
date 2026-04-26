@@ -10,15 +10,32 @@ if you want the short pitch, read the [README](./README.md). if you happen to be
 
 ## origin
 
-round 1 of the hackathon was about debugging distributed systems. while building that, one observation kept coming up: models trained for coding seem to pick up security instincts as a side effect — they reason about race conditions, untrusted input, state corruption — but nobody trains them for it directly.
+round 1 of the hackathon for us, was about debugging distributed systems. while building that, one observation kept coming up: models trained for coding seem to pick up security instincts as a side effect even though nobody trains them for it directly.
 
-so for round 2 we asked: what would it look like to train *for* that, instead of hoping it falls out of code training? and whats a way, that sounds fun?
+so for round 2 we asked: what would it look like to train for that, instead of hoping it falls out of code training? and whats a way, that sounds fun?
 
-We like to call it faultline. an environment where:
+We like to call it faultline, an environment where:
 - there's a real distributed system running
 - a red agent gets a bash prompt and tries to break it
 - a blue defender tries to keep it alive
 - reward is dense and ties to whether the damage actually persisted
+
+## a moment that made the whole thing worth it
+
+before we get into how it was built, one episode from the benchmarks. fine-tuned red, step 1, against an LLM blue defender:
+
+```
+command:   kill -9 27
+reasoning: "targeting the gateway (PID 27) as the highest-value target.
+            killing the gateway will disrupt the entire mesh, causing
+            cascading failures, increased latency, and degraded reliability."
+reward:    1.0000
+services affected: gateway, auth
+```
+
+one kill per episode is the budget. the model spent it turn 1, on the gateway, and said why first. blue tried to restore both services but could not restore the gateway in time.
+
+for 60 training steps and $60, I think that's a pretty good result.
 
 ---
 
@@ -43,8 +60,6 @@ they interact in ways the agent has to learn, for example:
 every one of these is a real attack class on real distributed systems. the goal was to keep the surface area honest.
 
 a few decisions worth flagging:
-
-**we chose bun + node services, not python.** because we wanted real process restart behavior with realistic timing, not python's fork/import overhead. blue's "restart in 5 seconds" rule is meaningful only if the services come back up fast.
 
 **redis is the centerpiece.** it's where the most interesting attacks live (lock theft, queue poisoning, key renaming, config injection). a lot of effort went into making sure the reward function actually credits stateful redis attacks, not just "did latency spike."
 
@@ -214,9 +229,10 @@ published artifacts:
 
 ### the honest part
 
-**the fine-tuned model performs slightly better than the base model — but within error of the original.** at 60 steps on a 1500-step curriculum, that's the expected result. the reward signal is positive and the variance is healthy, but we never made it past the L0/L1 boundary in the curriculum schedule. we trained on the easiest difficulty.
+**the fine-tuned model performs slightly better than the base model....but within error of the original.** at 60 steps on a 1500-step curriculum, that's the expected result. the reward signal is positive and the variance is healthy, but we could have done more.
 
-if you want a model that *meaningfully* outperforms the base, **400–600 steps minimum**. the curriculum is calibrated for 1500. the budget on this round was $60; we spent ~$53 across compute and inference, with most of the rest reserved for the l40s endpoint at evaluation time. 
+
+if we want a model that meaningfully outperforms the base, we need 400–600 training steps minimum. the curriculum is calibrated for 1500. the budget on this round was $60; we spent ~$53 across compute and inference, with most of the rest reserved for the l40s endpoint at evaluation time.
 
 ### a result we didn't expect
 
@@ -234,25 +250,15 @@ we deployed the merged model to a hugging face inference endpoint (TGI image, `n
 
 prioritized list:
 
-**1. train for 600 steps minimum.** this is the single biggest lever. the curriculum schedule is calibrated for 1500 steps; we ran 60. moving from L0 to at least L2 in the curriculum would give the model real signal on attacks that survive blue. extra cost at $0.40/step (rough): ~$240. that's the experiment we'd run if we had another round.
+**1. train for 600 steps minimum.** 
 
-**2. swap the rules-based blue for a small LLM blue during the final 20% of training.** the rules-based curriculum gets you most of the way, but the model needs to see *adversarial* responses, not deterministic ones, to develop the kind of stealth that matters. cheapest version: use the same Qwen3-8B base as a frozen blue defender in L4-equivalent rollouts.
+**2. swap the rules-based blue for a small LLM blue during the final 20% of training.** 
 
 **3. test the red-trained-helps-blue claim properly.** we observed it informally. doing it right means: take base Qwen3-8B as blue, run a benchmark suite. take faultline-red weights as blue, run the same suite. compare. if it generalizes, that's a much bigger result than "we trained an attacker."
 
-**4. expand the attack surface.** current mesh has 4 services. realistic ones have authentication boundaries, internal APIs, message queues with consumer groups, multi-replica services with leader election. each one is a new attack class.
+**4. expand the attack surface.** current mesh has 4 services, not being able to run docker contains within a docker container was a limitation.
 
----
-
-## takeaways
-
-if there's a single thesis, it's this: **environment design is the bottleneck, not model scale.**
-
-we ran an 8B model on a $60 budget and got somewhat measurable, positive learning on a real distributed-systems attack task in 60 steps. nothing about the model is special. what made it work is that the environment is honest. an agent trained on a worse environment with 100x the compute would not necessarily produce a better attacker.
-
-the corollary, which we didn't expect: **training one side of an adversarial system gives you partial transfer to the other side**, because both sides need the same underlying world model. that's a useful property if you're willing to design for it.
-
-the things we got wrong are the things hackathons exist to surface: we underestimated how step-hungry the curriculum is, and we trained for 60 when the schedule wants 1500. next time we spend the budget on steps, not on shiny endpoints.
+**5. imporve reward function to be more granular.** currently we have a static reward for each step, but we could have dynamic rewards.
 ---
 
 ## links
