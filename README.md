@@ -18,7 +18,6 @@ Distributed systems breaking under attack was one of Fibr AI's most persistent i
 
 Faultline is an adversarial environment for training agents on a live distributed system.
 
-Tagline: *An 8B model walks into a server room...*
 
 The same environment supports two roles:
 - **Red** attacks the system.
