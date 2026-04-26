@@ -30,6 +30,7 @@ from training.grpo.trainer import (
     build_trainer,
     make_rollout_func,
     reward_from_rollout,
+    reward_parse_success,
 )
 
 
@@ -72,7 +73,7 @@ def main() -> None:
         model=model,
         tokenizer=tokenizer,
         dataset=dataset_builder(initial_tasks),
-        reward_funcs=[reward_from_rollout],
+        reward_funcs=[reward_from_rollout, reward_parse_success],
         rollout_func=make_rollout_func(
             env_client=env_client,
             max_steps=settings["rollout"]["max_steps_per_episode"],

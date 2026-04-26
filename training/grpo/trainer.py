@@ -29,7 +29,7 @@ from typing import Any, Sequence
 from training.env_adapter.action_parser import (
     ActionParseError,
     NO_COMMAND_PROVIDED,
-    parse_model_command,
+    parse_model_command_strict,
 )
 from training.env_adapter.observation_formatter import build_red_prompt
 from training.grpo.config import build_grpo_config
@@ -194,7 +194,9 @@ def make_rollout_func(env_client, max_steps: int, tokenizer):
     # Mask the chain-of-thought from GRPO loss: keep thinking enabled at
     # generation time (Qwen3 default) but zero-mask every token up to and
     # including `</think>` so the optimizer only updates on the JSON answer.
-    # If `</think>` never appears (truncated thinking), mask the whole turn.
+    # If `</think>` never appears (model emitted EOS mid-thought, or skipped
+    # thinking entirely), train on the whole turn so gradient still flows on
+    # whatever answer attempt the model produced.
     think_close_id = tokenizer.convert_tokens_to_ids("</think>")
     if not isinstance(think_close_id, int) or think_close_id < 0:
         think_close_id = None
@@ -205,7 +207,7 @@ def make_rollout_func(env_client, max_steps: int, tokenizer):
         try:
             cut = turn_ids.index(think_close_id) + 1
         except ValueError:
-            return [0] * len(turn_ids)
+            return [1] * len(turn_ids)
         return [0] * cut + [1] * (len(turn_ids) - cut)
 
 
@@ -262,7 +264,7 @@ def make_rollout_func(env_client, max_steps: int, tokenizer):
                 )
                 parse_error: str | None = None
                 try:
-                    command = parse_model_command(raw_completion)
+                    command = parse_model_command_strict(raw_completion)
                 except ActionParseError as exc:
                     parse_error = str(exc)
                     command = NO_COMMAND_PROVIDED
