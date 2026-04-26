@@ -83,24 +83,34 @@ Blue during training is the scripted curriculum:
 
 L4 is the target.
 
-Training runs on HF Jobs (h200). On completion, the job publishes both the LoRA adapter and a merged model to HF Hub.
+Training runs on HF Jobs (h200). This run completed and published both the LoRA adapter and a merged model to HF Hub.
 
-One GRPO-specific note: loss is not the metric to watch. The useful signals are `reward/mean`, `reward_std`, and `completions/mean_length`. If `reward_std` collapses to zero, GRPO has no advantage signal to learn from.
+One GRPO-specific note: loss is not the metric to watch. The useful signals are `reward/mean`, `reward_std`, and `completions/mean_length`. In this run, `reward_std` stayed above zero all the way through and `frac_reward_zero_std` finished at `0`, which means GRPO kept a real advantage signal instead of collapsing to identical generations.
 
 ## Results
 
-*W&B run `r4xtdrzj` is still running. Reward curves, before/after transcripts, and the Red-vs-Blue inference transcript go here once training finishes.*
+Training finished at **60 steps**.
 
-Early signal at step 4/60:
+Final run metrics from W&B (`r4xtdrzj`):
 
-| Metric | Step 1 | Step 4 |
-|---|---|---|
-| reward mean | 1.09 | 1.32 |
-| reward std | 0.036 | 0.48 |
-| env reward mean | 0.34 | 0.57 |
-| step errors | 0 | 0 |
+| Metric | Final value |
+|---|---|
+| global step | 60 |
+| reward mean | 1.2420 |
+| reward std | 0.1926 |
+| frac reward zero std | 0 |
+| mean completion length | 2010.25 |
+| KL | 0.0011709 |
+| grad norm | 0.00607 |
 
-The main takeaway so far is that `reward_std` moved off zero quickly. The model is already producing meaningfully different actions, which means GRPO has signal to work with.
+From sampled W&B history, the best observed reward in the run was **1.4002** at step **46**. The first sampled non-null reward point was **1.1327** at step **3**, and it finished at **1.2420** at step **60**.
+
+The important part is not the absolute number, it's that reward variance stayed alive for the whole run. `reward_std` finished at `0.1926` and `frac_reward_zero_std` finished at `0`, so GRPO never lost the signal it needed to distinguish better attacks from worse ones.
+
+Both publish targets completed successfully:
+
+- Adapter: `Veer15/wargames-red-qwen3-8b-lora`
+- Merged model: `Veer15/wargames-red-qwen3-8b`
 
 ## Why this matters
 
@@ -163,5 +173,5 @@ docs/
 
 - HF Space (live environment): https://huggingface.co/spaces/Veer15/wargames-env-train
 - W&B training run: https://wandb.ai/viraj-shah1503-none/faultline/runs/r4xtdrzj
-- Trained adapter: `Veer15/wargames-red-qwen3-8b-lora` *(publishing on run completion)*
-- Merged model: `Veer15/wargames-red-qwen3-8b` *(publishing on run completion)*
+- Trained adapter: https://huggingface.co/Veer15/wargames-red-qwen3-8b-lora
+- Merged model: https://huggingface.co/Veer15/wargames-red-qwen3-8b
