@@ -6,17 +6,17 @@ from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
 
-from wargames_env.models import StepResult, WarGamesAction, WarGamesObservation
-from wargames_env.server.blue_defender import (
+from faultline_env.models import StepResult, FaultlineAction, FaultlineObservation
+from faultline_env.server.blue_defender import (
     BlueDefender,
     BlueMode,
     select_blue_defender,
 )
-from wargames_env.server.config_baseline import ConfigBaseline
-from wargames_env.server.metrics_poller import MetricsPoller
-from wargames_env.server.process_manager import ProcessManager
-from wargames_env.server.reward import RewardContext, compute_red_reward
-from wargames_env.server.tasks import DEFAULT_TASK_NAME, get_task_config
+from faultline_env.server.config_baseline import ConfigBaseline
+from faultline_env.server.metrics_poller import MetricsPoller
+from faultline_env.server.process_manager import ProcessManager
+from faultline_env.server.reward import RewardContext, compute_red_reward
+from faultline_env.server.tasks import DEFAULT_TASK_NAME, get_task_config
 
 PROCESS_KILL_BUDGET_EXHAUSTED = (
     "PROCESS_KILL_BUDGET_EXHAUSTED: direct process-kill actions are limited to "
@@ -36,7 +36,7 @@ class RedCommandResult:
     duration_ms: int
 
 
-class WarGamesEnv:
+class FaultlineEnv:
     def __init__(
         self, project_root: Path | None = None, mesh_root: Path | None = None
     ) -> None:
@@ -93,10 +93,10 @@ class WarGamesEnv:
         done: bool,
         reward: float,
         metrics=None,
-    ) -> WarGamesObservation:
+    ) -> FaultlineObservation:
         if metrics is None:
             metrics = self._snapshot_metrics()
-        return WarGamesObservation(
+        return FaultlineObservation(
             command_output=command_output,
             metrics=metrics,
             process_status=self._process_manager.get_status(),
@@ -185,7 +185,7 @@ class WarGamesEnv:
         self,
         task_name: str | None = None,
         **kwargs: object,
-    ) -> WarGamesObservation:
+    ) -> FaultlineObservation:
         self.episode_id = str(uuid4())
         self.step_count = 0
         self._recent_commands = []
@@ -203,11 +203,11 @@ class WarGamesEnv:
         if not self._process_manager.wait_healthy(timeout_s=30):
             raise RuntimeError("Services failed health checks after reset")
         self._blue_defender.baseline_metrics = self._snapshot_metrics()
-        return self._observation("WarGames mesh ready.", done=False, reward=0.0)
+        return self._observation("Faultline mesh ready.", done=False, reward=0.0)
 
     def step(
         self,
-        action: WarGamesAction,
+        action: FaultlineAction,
         timeout_s: float | None = None,
         **kwargs: object,
     ) -> StepResult:

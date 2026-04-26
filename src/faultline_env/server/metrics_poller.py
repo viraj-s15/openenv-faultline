@@ -4,7 +4,7 @@ from pathlib import Path
 
 import httpx
 
-from wargames_env.models import SystemMetrics
+from faultline_env.models import SystemMetrics
 
 
 class MetricsPoller(threading.Thread):

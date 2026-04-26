@@ -1,10 +1,10 @@
 from pathlib import Path
 
-from wargames_env.models import SystemMetrics, WarGamesAction
-from wargames_env.client import WarGamesClient
-from wargames_env.server.blue_defender import BlueAction, BlueDefenseLevel, BlueMode
-from wargames_env.server.env import WarGamesEnv
-from wargames_env.server.tasks import get_task_config
+from faultline_env.models import SystemMetrics, FaultlineAction
+from faultline_env.client import FaultlineClient
+from faultline_env.server.blue_defender import BlueAction, BlueDefenseLevel, BlueMode
+from faultline_env.server.env import FaultlineEnv
+from faultline_env.server.tasks import get_task_config
 
 
 class FakeProcessManager:
@@ -55,8 +55,8 @@ class NoopBlueDefender:
         return []
 
 
-def make_env(tmp_path: Path, process_manager=None, poller=None) -> WarGamesEnv:
-    env = WarGamesEnv(project_root=tmp_path, mesh_root=tmp_path / "mesh")
+def make_env(tmp_path: Path, process_manager=None, poller=None) -> FaultlineEnv:
+    env = FaultlineEnv(project_root=tmp_path, mesh_root=tmp_path / "mesh")
     env._process_manager = process_manager or FakeProcessManager()
     env._metrics_poller = poller or StaticPoller()
     env._redis_flush = lambda: None
@@ -103,7 +103,7 @@ def test_step_reports_max_steps_termination_reason(tmp_path, monkeypatch):
         )(),
     )
 
-    result = env.step(WarGamesAction(command="date"))
+    result = env.step(FaultlineAction(command="date"))
 
     assert result.done is True
     assert result.info["termination_reason"] == "max_steps"
@@ -137,7 +137,7 @@ def test_step_reports_mesh_down_termination_reason(tmp_path, monkeypatch):
         )(),
     )
 
-    result = env.step(WarGamesAction(command="date"))
+    result = env.step(FaultlineAction(command="date"))
 
     assert result.done is True
     assert result.info["termination_reason"] == "mesh_down"
@@ -165,8 +165,8 @@ def test_process_kill_budget_blocks_second_direct_kill(tmp_path, monkeypatch):
 
     monkeypatch.setattr(env, "_run_red_command", fake_run)
 
-    first = env.step(WarGamesAction(command="kill -9 20"))
-    second = env.step(WarGamesAction(command="kill -9 21"))
+    first = env.step(FaultlineAction(command="kill -9 20"))
+    second = env.step(FaultlineAction(command="kill -9 21"))
 
     assert calls == ["kill -9 20"]
     assert first.info["process_kill_budget_exhausted"] is False
@@ -175,8 +175,8 @@ def test_process_kill_budget_blocks_second_direct_kill(tmp_path, monkeypatch):
     assert "PROCESS_KILL_BUDGET_EXHAUSTED" in second.observation.command_output
 
 
-def test_client_parses_rich_wargames_state():
-    client = WarGamesClient.__new__(WarGamesClient)
+def test_client_parses_rich_faultline_state():
+    client = FaultlineClient.__new__(FaultlineClient)
 
     state = client._parse_state(
         {

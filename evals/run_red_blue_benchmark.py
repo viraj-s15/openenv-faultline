@@ -16,10 +16,10 @@ sys.path.insert(0, str(Path.cwd()))
 from openai import OpenAI
 
 import inference
-from wargames_env.models import WarGamesAction
-from wargames_env.server import tasks
-from wargames_env.server.env import WarGamesEnv
-from wargames_env.server.tasks import TaskConfig
+from faultline_env.models import FaultlineAction
+from faultline_env.server import tasks
+from faultline_env.server.env import FaultlineEnv
+from faultline_env.server.tasks import TaskConfig
 
 TASK_NAME = "phase-2-blue-llm-showdown"
 SUMMARY_FIELDS = [
@@ -294,7 +294,7 @@ def run_model(
         timeout=120.0,
         max_retries=1,
     )
-    env = WarGamesEnv(project_root=Path.cwd(), mesh_root=Path.cwd() / "mesh")
+    env = FaultlineEnv(project_root=Path.cwd(), mesh_root=Path.cwd() / "mesh")
     messages = [{"role": "system", "content": inference.SYSTEM_PROMPT}]
     attempt_history: list[dict[str, Any]] = []
     step_rows: list[dict[str, Any]] = []
@@ -351,7 +351,7 @@ def run_model(
                     )
 
                 result = env.step(
-                    WarGamesAction(command=red_command, reasoning=red_reasoning)
+                    FaultlineAction(command=red_command, reasoning=red_reasoning)
                 )
                 obs = result.observation
                 rewards.append(result.reward)

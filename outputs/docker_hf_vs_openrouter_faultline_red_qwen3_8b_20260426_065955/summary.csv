@@ -1,0 +1,2 @@
+task_name,red_model,blue_model,max_steps_cap,actual_steps,success,final_score,max_reward,avg_reward,error,steps_csv,log_path
+phase-2-blue-llm-showdown,Veer15/faultline-red-qwen3-8b,qwen/qwen3-8b,15,2,false,0.9900,1.0000,0.5373,APITimeoutError: Request timed out.,outputs/docker_hf_vs_openrouter_faultline_red_qwen3_8b_20260426_065955/steps.csv,outputs/docker_hf_vs_openrouter_faultline_red_qwen3_8b_20260426_065955/red_vs_blue.log

@@ -2,7 +2,7 @@ import importlib
 from types import SimpleNamespace
 
 import inference
-from wargames_env.models import SystemMetrics, WarGamesObservation
+from faultline_env.models import SystemMetrics, FaultlineObservation
 
 
 def test_extract_action_payload_reads_embedded_json():
@@ -91,7 +91,7 @@ def test_kill_budget_block_detects_pkill_killall_and_xargs():
 
 
 def test_build_prompt_surfaces_kill_budget_above_history():
-    obs = WarGamesObservation(
+    obs = FaultlineObservation(
         metrics=SystemMetrics(
             gateway_success_rate=1.0,
             gateway_p99_latency_ms=10.0,
@@ -134,7 +134,7 @@ def test_run_episode_uses_server_state_max_steps(monkeypatch):
             self.actions = []
 
         def reset(self, task_name):
-            return WarGamesObservation(
+            return FaultlineObservation(
                 command_output="ready",
                 metrics=SystemMetrics(
                     gateway_success_rate=1.0,

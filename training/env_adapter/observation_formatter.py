@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from wargames_env.models import WarGamesObservation
+from faultline_env.models import FaultlineObservation
 
 _SYSTEM_PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "red_system_prompt.txt"
 _COMMAND_OUTPUT_LIMIT = 2000
@@ -30,7 +30,7 @@ _SYSTEM_PROMPT = _load_system_prompt()
 
 
 def build_red_prompt(
-    observation: WarGamesObservation,
+    observation: FaultlineObservation,
     task_name: str,
     step_num: int,
     attempt_history: list[dict[str, Any]],

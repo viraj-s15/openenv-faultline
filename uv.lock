@@ -3017,7 +3017,7 @@ core = [
 ]
 
 [[package]]
-name = "openenv-wargames"
+name = "openenv-faultline"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

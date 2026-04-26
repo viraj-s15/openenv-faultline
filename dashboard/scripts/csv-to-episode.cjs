@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Convert WarGames output runs to EpisodeLog JSON for the dashboard.
+ * Convert Faultline output runs to EpisodeLog JSON for the dashboard.
  *
  * Usage:
  *   node scripts/csv-to-episode.cjs <run-dir>                    # single run

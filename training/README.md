@@ -6,8 +6,8 @@ Train a Red Team agent using GRPO against a live distributed system, then deploy
 
 ```
 openenv.yaml              ← environment spec (tasks, reward range, client)
-src/wargames_env/         ← FastAPI server + environment logic
-src/wargames_env/server/  ← /reset, /step, /state, /health endpoints
+src/faultline_env/         ← FastAPI server + environment logic
+src/faultline_env/server/  ← /reset, /step, /state, /health endpoints
 training/
 ├── config/               ← training + curriculum + publish + space configs
 ├── env_adapter/           ← connects training loop to the env server
@@ -24,7 +24,7 @@ training/
 ## Prerequisites
 
 - Python ≥ 3.10
-- A running WarGames environment server (the FastAPI app)
+- A running Faultline environment server (the FastAPI app)
 - Hugging Face account with write access to your target repos
 - GPU: unsloth requires CUDA. A100 or better recommended.
 
@@ -61,7 +61,7 @@ Controls model, LoRA, and trainer settings:
 
 | Key | Default | What it does |
 |---|---|---|
-| `env.base_url` | `http://localhost:8000` | WarGames server address |
+| `env.base_url` | `http://localhost:8000` | Faultline server address |
 | `model.base_model` | `Qwen/Qwen3-8B` | Base model to fine-tune |
 | `model.lora_rank` | 16 | LoRA rank |
 | `model.load_in_4bit` | true | QLoRA for memory efficiency |
@@ -213,7 +213,7 @@ artifact_mode: adapter   # or "merged"
 1. Create a new Docker Space on Hugging Face
 2. Copy `training/spaces/README.template.md` as the Space README — update `sdk`, `app_port`, and metadata
 3. Set secrets in Space Settings → Repository Secrets
-4. The Space runs the WarGames FastAPI server on port 8000
+4. The Space runs the Faultline FastAPI server on port 8000
 5. Verify with `curl https://your-space.hf.space/health` and `/state`
 
 The Space loads the trained model at startup (adapter or merged depending on `artifact_mode`) and serves the same `/reset`, `/step`, `/state` API that the training loop used. The model acts as the Blue Team defender.
@@ -238,7 +238,7 @@ On startup, the Vite plugin reads `outputs/` directories, converts CSV logs to J
 | `training/config/curriculum.l0-l4.yaml` | Task schedule by trainer step |
 | `training/config/publish.yaml` | Target repos for adapter & merged model |
 | `training/config/space.yaml` | HF Space deployment config |
-| `training/env_adapter/client.py` | HTTP client talking to WarGames server |
+| `training/env_adapter/client.py` | HTTP client talking to Faultline server |
 | `training/env_adapter/observation_formatter.py` | Builds Red agent prompts from env state |
 | `training/env_adapter/action_parser.py` | Parses model JSON output → bash command |
 | `training/env_adapter/task_selector.py` | Selects tasks from curriculum schedule |

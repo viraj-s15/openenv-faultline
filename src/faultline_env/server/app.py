@@ -2,13 +2,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 
-from wargames_env.models import StepResult, WarGamesAction, WarGamesObservation
-from wargames_env.server.env import WarGamesEnv
+from faultline_env.models import StepResult, FaultlineAction, FaultlineObservation
+from faultline_env.server.env import FaultlineEnv
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    env = WarGamesEnv()
+    env = FaultlineEnv()
     app.state.env = env
     try:
         yield
@@ -17,25 +17,25 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="WarGames OpenEnv",
+    title="Faultline OpenEnv",
     version="0.1.0",
     lifespan=lifespan,
 )
 
 
-@app.post("/reset", response_model=WarGamesObservation)
-async def reset(task_name: str | None = None) -> WarGamesObservation:
+@app.post("/reset", response_model=FaultlineObservation)
+async def reset(task_name: str | None = None) -> FaultlineObservation:
     try:
-        env: WarGamesEnv = app.state.env
+        env: FaultlineEnv = app.state.env
         return env.reset(task_name=task_name)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @app.post("/step", response_model=StepResult)
-async def step(action: WarGamesAction) -> StepResult:
+async def step(action: FaultlineAction) -> StepResult:
     try:
-        env: WarGamesEnv = app.state.env
+        env: FaultlineEnv = app.state.env
         return env.step(action)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -44,7 +44,7 @@ async def step(action: WarGamesAction) -> StepResult:
 @app.get("/state")
 async def state() -> dict[str, object]:
     try:
-        env: WarGamesEnv = app.state.env
+        env: FaultlineEnv = app.state.env
         return env.state()
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc

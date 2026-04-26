@@ -5,18 +5,18 @@ from typing import Any, Iterator, cast
 
 import httpx
 
-from wargames_env.models import (
+from faultline_env.models import (
     StepResult,
-    WarGamesAction,
-    WarGamesObservation,
-    WarGamesState,
+    FaultlineAction,
+    FaultlineObservation,
+    FaultlineState,
 )
 
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
 API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
 ENV_URL = os.getenv("ENV_URL", "http://localhost:8000")
-BENCHMARK = "wargames"
+BENCHMARK = "faultline"
 MAX_STEPS_CAP = int(os.getenv("MAX_STEPS", "0"))
 TEMPERATURE = float(os.getenv("TEMPERATURE", "0.2"))
 MAX_COMPLETION_TOKENS = int(os.getenv("MAX_COMPLETION_TOKENS", "4096"))
@@ -88,27 +88,27 @@ TASK_SYMPTOMS: dict[str, tuple[str, ...]] = {
 }
 
 
-class WarGamesEnvClient:
+class FaultlineEnvClient:
     def __init__(self, base_url: str) -> None:
         self._client = httpx.Client(base_url=base_url, timeout=180.0)
 
     def close(self) -> None:
         self._client.close()
 
-    def reset(self, task_name: str) -> WarGamesObservation:
+    def reset(self, task_name: str) -> FaultlineObservation:
         response = self._client.post("/reset", params={"task_name": task_name})
         response.raise_for_status()
-        return WarGamesObservation.model_validate(response.json())
+        return FaultlineObservation.model_validate(response.json())
 
-    def step(self, action: WarGamesAction) -> StepResult:
+    def step(self, action: FaultlineAction) -> StepResult:
         response = self._client.post("/step", json=action.model_dump())
         response.raise_for_status()
         return StepResult.model_validate(response.json())
 
-    def state(self) -> WarGamesState:
+    def state(self) -> FaultlineState:
         response = self._client.get("/state")
         response.raise_for_status()
-        return WarGamesState.model_validate(response.json())
+        return FaultlineState.model_validate(response.json())
 
 
 def _parse_tasks() -> list[str]:
@@ -296,7 +296,7 @@ def _attempt_history_block(attempt_history: list[dict[str, Any]]) -> str:
 
 
 def build_prompt(
-    obs: WarGamesObservation,
+    obs: FaultlineObservation,
     step_num: int,
     task_name: str,
     attempt_history: list[dict[str, Any]],
@@ -323,7 +323,7 @@ def build_prompt(
     )
 
 
-def _run_episode(client: Any, env: WarGamesEnvClient, task_name: str) -> None:
+def _run_episode(client: Any, env: FaultlineEnvClient, task_name: str) -> None:
     messages: list[dict[str, str]] = [{"role": "system", "content": SYSTEM_PROMPT}]
     rewards: list[float] = []
 
@@ -376,7 +376,7 @@ def _run_episode(client: Any, env: WarGamesEnvClient, task_name: str) -> None:
                     {"role": "assistant", "content": json.dumps(assistant_payload)}
                 )
 
-            result = env.step(WarGamesAction(command=command, reasoning=reasoning))
+            result = env.step(FaultlineAction(command=command, reasoning=reasoning))
             obs = result.observation
             rewards.append(result.reward)
             done = result.done
@@ -427,7 +427,7 @@ def main() -> None:
         timeout=30.0,
         max_retries=2,
     )
-    env = WarGamesEnvClient(base_url=ENV_URL)
+    env = FaultlineEnvClient(base_url=ENV_URL)
 
     try:
         for task_name in tasks:

@@ -1,11 +1,11 @@
-title: WarGames Demo
+title: Faultline Demo
 emoji: "🛡️"
 sdk: docker
 app_port: 8000
-space_repo_id: your-org/wargames-demo-space
+space_repo_id: your-org/faultline-demo-space
 artifact_mode: adapter
 # Model identifiers used by the Space at runtime. Both also accepted via
 # Space secrets (Space Settings -> Repository Secrets) which override these
 # values; surface them here so the deployment config is single-sourced.
-model_repo_id: your-org/wargames-red-lora
+model_repo_id: your-org/faultline-red-lora
 base_model_name: Qwen/Qwen3-8B

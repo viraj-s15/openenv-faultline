@@ -3,7 +3,7 @@ from pathlib import Path
 
 import yaml
 
-from training.env_adapter.client import WarGamesTrainingClient
+from training.env_adapter.client import FaultlineTrainingClient
 from training.grpo.model import load_training_model
 from training.grpo.trainer import LocalGenerationClient
 from training.rollouts.episode_runner import run_episode
@@ -13,7 +13,7 @@ from training.rollouts.transcript_writer import write_transcript
 def main() -> None:
     config_path = Path(os.getenv("TRAINING_CONFIG", "training/config/training.base.yaml"))
     settings = yaml.safe_load(config_path.read_text())
-    env_client = WarGamesTrainingClient(settings["env"]["base_url"])
+    env_client = FaultlineTrainingClient(settings["env"]["base_url"])
     model, tokenizer, _ = load_training_model(settings)
     llm_client = LocalGenerationClient(
         model=model,

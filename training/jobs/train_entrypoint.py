@@ -1,7 +1,7 @@
-"""HuggingFace Jobs entrypoint for GRPO training of the WarGames Red agent.
+"""HuggingFace Jobs entrypoint for GRPO training of the Faultline Red agent.
 
 Wires together:
-  - Live env client (FastAPI WarGames server)
+  - Live env client (FastAPI Faultline server)
   - unsloth + LoRA model load
   - TRL >=0.25 GRPOTrainer with a real rollout_func + reward_func pair
   - Curriculum callback (hard-switch by trainer step)
@@ -20,7 +20,7 @@ from typing import Sequence
 
 import yaml
 
-from training.env_adapter.client import WarGamesTrainingClient
+from training.env_adapter.client import FaultlineTrainingClient
 from training.env_adapter.task_selector import select_curriculum_tasks
 from training.grpo.callbacks import CurriculumCallback, WandbArtifactCallback
 from training.grpo.config import configure_wandb
@@ -58,7 +58,7 @@ def main() -> None:
 
     configure_wandb(settings)
 
-    env_client = WarGamesTrainingClient(settings["env"]["base_url"])
+    env_client = FaultlineTrainingClient(settings["env"]["base_url"])
     model, tokenizer, lora_config = load_training_model(settings)
 
     schedule = curriculum["schedule"]

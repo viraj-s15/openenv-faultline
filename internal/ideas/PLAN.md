@@ -1,9 +1,9 @@
-# 🎮 WarGames: Shall We Play a Game?
+# 🎮 Faultline: Shall We Play a Game?
 
 > *"The only winning move is to learn."*
 > — Joshua, probably, if he had GRPO
 
-### Full Name: **WarGames — Teaching LLMs to Hack a Live Distributed System**
+### Full Name: **Faultline — Teaching LLMs to Hack a Live Distributed System**
 ### Tagline: *"An 8B model walks into a server room..."*
 
 ---
@@ -25,7 +25,7 @@ A live distributed system. An LLM Red Team agent trained with GRPO to find and e
 **Round 1 reference project:** `/Users/virajshah/Documents/openenv-distributed-systems-debugging`
 
 - [ ] Install/update OpenEnv CLI to **latest version**
-- [ ] Scaffold R2 project using OpenEnv CLI (`openenv init wargames`)
+- [ ] Scaffold R2 project using OpenEnv CLI (`openenv init faultline`)
 - [ ] Port R1 service mesh to R2 repo (Gateway, Auth, Redis, Worker, SQLite, Job generator)
 - [ ] Port `process_manager.py` and `metrics_poller.py`
 - [ ] Verify all services boot and respond on local machine

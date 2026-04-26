@@ -1,7 +1,7 @@
 import os
 import subprocess
 
-from wargames_env.server.process_manager import ProcessManager
+from faultline_env.server.process_manager import ProcessManager
 
 
 def test_is_pid_alive_treats_zombie_process_as_dead(monkeypatch):

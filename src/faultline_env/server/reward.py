@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 
 from pydantic import BaseModel, Field
 
-from wargames_env.models import SystemMetrics
+from faultline_env.models import SystemMetrics
 
 POSITIVE_WEIGHT_TOTAL = 3.0
 

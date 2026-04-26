@@ -1,5 +1,5 @@
 ---
-title: wargames-openenv
+title: faultline-openenv
 sdk: docker
 app_port: 8000
 colorFrom: red
@@ -109,8 +109,8 @@ The important part is not the absolute number, it's that reward variance stayed 
 
 Both publish targets completed successfully:
 
-- Adapter: `Veer15/wargames-red-qwen3-8b-lora`
-- Merged model: `Veer15/wargames-red-qwen3-8b`
+- Adapter: `Veer15/faultline-red-qwen3-8b-lora`
+- Merged model: `Veer15/faultline-red-qwen3-8b`
 
 ## Why this matters
 
@@ -126,10 +126,10 @@ The environment runs on HF Spaces. Call it directly:
 
 ```bash
 # Start an episode
-curl -X POST https://veer15-wargames-env-train.hf.space/reset?task_name=phase-2-blue-l4
+curl -X POST https://veer15-faultline-env-train.hf.space/reset?task_name=phase-2-blue-l4
 
 # Take a step
-curl -X POST https://veer15-wargames-env-train.hf.space/step \
+curl -X POST https://veer15-faultline-env-train.hf.space/step \
   -H "Content-Type: application/json" \
   -d '{"command": "redis-cli KEYS \"*\""}'
 ```
@@ -154,7 +154,7 @@ MODEL_NAME="Qwen/Qwen2.5-72B-Instruct" HF_TOKEN="..." python inference.py
 ## Repository Layout
 
 ```
-src/wargames_env/     ← OpenEnv Environment class, reward logic, Blue curriculum
+src/faultline_env/     ← OpenEnv Environment class, reward logic, Blue curriculum
 mesh/                 ← Gateway, Auth, Worker (Bun/Node services)
 training/             ← GRPO training pipeline, env adapter, publish
   config/             ← training.base.yaml, curriculum.l0-l4.yaml
@@ -171,7 +171,7 @@ docs/
 
 ## Links
 
-- HF Space (live environment): https://huggingface.co/spaces/Veer15/wargames-env-train
+- HF Space (live environment): https://huggingface.co/spaces/Veer15/faultline-env-train
 - W&B training run: https://api.wandb.ai/links/viraj-shah1503-none/l5wy9mu5
-- Trained adapter: https://huggingface.co/Veer15/wargames-red-qwen3-8b-lora
-- Merged model: https://huggingface.co/Veer15/wargames-red-qwen3-8b
+- Trained adapter: https://huggingface.co/Veer15/faultline-red-qwen3-8b-lora
+- Merged model: https://huggingface.co/Veer15/faultline-red-qwen3-8b

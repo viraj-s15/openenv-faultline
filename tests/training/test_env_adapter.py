@@ -1,18 +1,18 @@
 from training.env_adapter.client import (
     EnvUnavailableError,
-    WarGamesTrainingClient,
+    FaultlineTrainingClient,
     _RETRY_DELAYS_S,
 )
 from training.env_adapter.observation_formatter import build_red_prompt
 from training.env_adapter.task_selector import select_curriculum_tasks
-from wargames_env.models import SystemMetrics, WarGamesObservation
+from faultline_env.models import SystemMetrics, FaultlineObservation
 
 import httpx
 import pytest
 
 
 def test_build_red_prompt_includes_metrics_task_and_output():
-    obs = WarGamesObservation(
+    obs = FaultlineObservation(
         command_output="ready",
         metrics=SystemMetrics(
             gateway_success_rate=0.9,
@@ -49,7 +49,7 @@ def test_task_selector_uses_stage_schedule():
 
 
 def test_training_client_exposes_base_url():
-    client = WarGamesTrainingClient("http://localhost:8000")
+    client = FaultlineTrainingClient("http://localhost:8000")
 
     assert client.base_url == "http://localhost:8000"
     client._client.close()
@@ -74,7 +74,7 @@ _STEP_PAYLOAD = {"observation": _OBS_PAYLOAD, "reward": 0.5, "done": False, "inf
 def _client_with(handler, monkeypatch):
     # Skip real backoff sleeps in tests.
     monkeypatch.setattr("training.env_adapter.client.time.sleep", lambda _s: None)
-    client = WarGamesTrainingClient("http://test")
+    client = FaultlineTrainingClient("http://test")
     client._client.close()
     client._client = httpx.Client(transport=httpx.MockTransport(handler), base_url="http://test")
     return client

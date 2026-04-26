@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterator, Protocol, cast
 
-from wargames_env.models import SystemMetrics
+from faultline_env.models import SystemMetrics
 
 BLUE_SYSTEM_PROMPT = """You are the incident commander for a live distributed system.
 Keep metrics green while a Red agent attacks the mesh.

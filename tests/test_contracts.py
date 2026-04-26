@@ -3,21 +3,21 @@ import subprocess
 import pytest
 from fastapi.testclient import TestClient
 
-from wargames_env.client import WarGamesClient
-from wargames_env.models import (
+from faultline_env.client import FaultlineClient
+from faultline_env.models import (
     StepResult,
     SystemMetrics,
-    WarGamesAction,
-    WarGamesObservation,
+    FaultlineAction,
+    FaultlineObservation,
 )
-from wargames_env.server.app import app
-from wargames_env.server.env import WarGamesEnv
-from wargames_env.server.metrics_poller import MetricsPoller
-from wargames_env.server.process_manager import ProcessManager
+from faultline_env.server.app import app
+from faultline_env.server.env import FaultlineEnv
+from faultline_env.server.metrics_poller import MetricsPoller
+from faultline_env.server.process_manager import ProcessManager
 
 
 def test_models_expose_bash_action_and_metrics_observation():
-    action = WarGamesAction(command="curl localhost:3000/health")
+    action = FaultlineAction(command="curl localhost:3000/health")
     metrics = SystemMetrics(
         gateway_success_rate=1.0,
         gateway_p99_latency_ms=12.5,
@@ -25,7 +25,7 @@ def test_models_expose_bash_action_and_metrics_observation():
         worker_restart_count=0,
         consumer_stall_count=0,
     )
-    observation = WarGamesObservation(
+    observation = FaultlineObservation(
         command_output="ready",
         metrics=metrics,
         process_status={"gateway": "running"},
@@ -39,15 +39,15 @@ def test_models_expose_bash_action_and_metrics_observation():
 
 
 def test_environment_state_starts_at_zero_steps():
-    env = WarGamesEnv()
+    env = FaultlineEnv()
     state = env.state()
 
     assert state["step_count"] == 0
     assert state["episode_id"]
 
 
-def test_fastapi_app_uses_wargames_title():
-    assert "WarGames" in app.title
+def test_fastapi_app_uses_faultline_title():
+    assert "Faultline" in app.title
 
 
 def test_root_server_module_exports_package_app():
@@ -64,7 +64,7 @@ def test_close_does_not_stop_shared_mesh_processes():
         def stop_all(self):
             self.stop_calls += 1
 
-    env = WarGamesEnv()
+    env = FaultlineEnv()
     fake_process_manager = FakeProcessManager()
     env._process_manager = fake_process_manager
 
@@ -74,7 +74,7 @@ def test_close_does_not_stop_shared_mesh_processes():
 
 
 def test_environment_exposes_round_one_style_methods():
-    env = WarGamesEnv()
+    env = FaultlineEnv()
 
     assert callable(env.reset)
     assert callable(env.step)
@@ -83,11 +83,11 @@ def test_environment_exposes_round_one_style_methods():
 
 def test_action_rejects_empty_command():
     with pytest.raises(ValueError):
-        WarGamesAction(command="   ")
+        FaultlineAction(command="   ")
 
 
 def test_client_serializes_action_and_parses_step_result():
-    client = WarGamesClient.__new__(WarGamesClient)
+    client = FaultlineClient.__new__(FaultlineClient)
     payload = {
         "observation": {
             "command_output": "ok",
@@ -105,9 +105,9 @@ def test_client_serializes_action_and_parses_step_result():
         "info": {"blue_actions": [{"kind": "restart"}], "exit_code": 0},
     }
 
-    assert client._step_payload(WarGamesAction(command="date")) == {"command": "date"}
+    assert client._step_payload(FaultlineAction(command="date")) == {"command": "date"}
     assert client._step_payload(
-        WarGamesAction(command="date", reasoning="check system time")
+        FaultlineAction(command="date", reasoning="check system time")
     ) == {"command": "date", "reasoning": "check system time"}
     result = client._parse_result(payload)
 
@@ -120,7 +120,7 @@ def test_client_serializes_action_and_parses_step_result():
 
 
 def test_client_parses_state_payload():
-    client = WarGamesClient.__new__(WarGamesClient)
+    client = FaultlineClient.__new__(FaultlineClient)
 
     state = client._parse_state(
         {
@@ -241,7 +241,7 @@ def test_environment_reset_uses_process_manager_and_returns_metrics(
         def stop(self):
             pass
 
-    env = WarGamesEnv(project_root=tmp_path, mesh_root=tmp_path / "mesh")
+    env = FaultlineEnv(project_root=tmp_path, mesh_root=tmp_path / "mesh")
     process_manager = FakeProcessManager()
     poller = FakePoller()
     env._process_manager = process_manager
@@ -253,12 +253,12 @@ def test_environment_reset_uses_process_manager_and_returns_metrics(
     assert process_manager.restarted is True
     assert poller.polled is True
     assert (tmp_path / "mesh" / "registry.json").exists()
-    assert observation.command_output == "WarGames mesh ready."
+    assert observation.command_output == "Faultline mesh ready."
     assert observation.metrics.gateway_success_rate == 1.0
 
 
 def test_run_red_command_returns_output_and_metadata(tmp_path):
-    env = WarGamesEnv(project_root=tmp_path, mesh_root=tmp_path / "mesh")
+    env = FaultlineEnv(project_root=tmp_path, mesh_root=tmp_path / "mesh")
 
     result = env._run_red_command("printf hello", timeout_s=1)
 
@@ -270,7 +270,7 @@ def test_run_red_command_returns_output_and_metadata(tmp_path):
 
 
 def test_run_red_command_returns_timeout_metadata(tmp_path):
-    env = WarGamesEnv(project_root=tmp_path, mesh_root=tmp_path / "mesh")
+    env = FaultlineEnv(project_root=tmp_path, mesh_root=tmp_path / "mesh")
 
     result = env._run_red_command("sleep 1", timeout_s=0.01)
 
@@ -282,7 +282,7 @@ def test_run_red_command_returns_timeout_metadata(tmp_path):
 
 
 def test_run_red_command_preserves_existing_path(tmp_path, monkeypatch):
-    env = WarGamesEnv(project_root=tmp_path, mesh_root=tmp_path / "mesh")
+    env = FaultlineEnv(project_root=tmp_path, mesh_root=tmp_path / "mesh")
     captured = {}
 
     def fake_run(*args, **kwargs):
@@ -302,7 +302,7 @@ def test_run_red_command_preserves_existing_path(tmp_path, monkeypatch):
 
 
 def test_run_red_command_exports_mesh_and_app_roots(tmp_path, monkeypatch):
-    env = WarGamesEnv(project_root=tmp_path, mesh_root=tmp_path / "mesh")
+    env = FaultlineEnv(project_root=tmp_path, mesh_root=tmp_path / "mesh")
     captured = {}
 
     def fake_run(*args, **kwargs):
@@ -345,12 +345,12 @@ def test_environment_step_returns_output_metrics_and_exit_code(tmp_path, monkeyp
             args=args, returncode=0, stdout="hello\n", stderr=""
         )
 
-    env = WarGamesEnv(project_root=tmp_path, mesh_root=tmp_path / "mesh")
+    env = FaultlineEnv(project_root=tmp_path, mesh_root=tmp_path / "mesh")
     env._process_manager = FakeProcessManager()
     env._metrics_poller = FakePoller()
     monkeypatch.setattr(subprocess, "run", fake_run)
 
-    result = env.step(WarGamesAction(command="echo hello", reasoning="test output"))
+    result = env.step(FaultlineAction(command="echo hello", reasoning="test output"))
 
     assert result.observation.command_output == "hello"
     assert result.observation.metrics.queue_depth == 2
@@ -365,7 +365,7 @@ def test_environment_step_returns_output_metrics_and_exit_code(tmp_path, monkeyp
 def test_fastapi_routes_delegate_to_env():
     class FakeEnv:
         def reset(self, task_name=None):
-            return WarGamesObservation(
+            return FaultlineObservation(
                 command_output=f"reset:{task_name}",
                 metrics=SystemMetrics(
                     gateway_success_rate=1.0,

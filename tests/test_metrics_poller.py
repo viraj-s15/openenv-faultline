@@ -2,7 +2,7 @@ import subprocess
 
 import httpx
 
-from wargames_env.server.metrics_poller import MetricsPoller
+from faultline_env.server.metrics_poller import MetricsPoller
 
 
 def test_failed_gateway_poll_degrades_gateway_metrics(monkeypatch):

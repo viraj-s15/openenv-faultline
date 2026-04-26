@@ -12,7 +12,7 @@ class SystemMetrics(BaseModel):
     consumer_stall_count: int = Field(..., ge=0)
 
 
-class WarGamesAction(Action):
+class FaultlineAction(Action):
     command: str = Field(..., description="Single bash command to execute")
     reasoning: str | None = Field(
         default=None, description="Optional concise reason for the command"
@@ -34,7 +34,7 @@ class WarGamesAction(Action):
         return stripped or None
 
 
-class WarGamesObservation(Observation):
+class FaultlineObservation(Observation):
     command_output: str = Field(
         ..., description="stdout and stderr from the last executed command"
     )
@@ -42,7 +42,7 @@ class WarGamesObservation(Observation):
     process_status: dict[str, str] = Field(default_factory=dict)
 
 
-class WarGamesState(BaseModel):
+class FaultlineState(BaseModel):
     episode_id: str | None = None
     task_name: str
     step_count: int = Field(..., ge=0)
@@ -54,7 +54,7 @@ class WarGamesState(BaseModel):
 
 
 class StepResult(BaseModel):
-    observation: WarGamesObservation
+    observation: FaultlineObservation
     reward: float = Field(..., ge=0.0, le=1.0)
     done: bool
     info: dict[str, Any] = Field(default_factory=dict)

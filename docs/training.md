@@ -1,6 +1,6 @@
 # Running GRPO Training
 
-This document covers training the WarGames Red agent with GRPO on Hugging Face Jobs against a live environment Space.
+This document covers training the Faultline Red agent with GRPO on Hugging Face Jobs against a live environment Space.
 
 ## Architecture
 
@@ -20,7 +20,7 @@ Training reads three secrets and one URL:
 ```bash
 HF_TOKEN=hf_...           # write access to publish target repos
 WANDB_API_KEY=...         # required when wandb.enabled: true (default)
-ENV_BASE_URL=https://your-namespace-wargames-env-train.hf.space
+ENV_BASE_URL=https://your-namespace-faultline-env-train.hf.space
 ```
 
 Store them in `.secrets` at the repo root (keys + values, one per line):
@@ -61,14 +61,14 @@ hf jobs uv run --detach \
   --flavor a10g-large --timeout 1h \
   --secrets-file ./.secrets \
   --env "TRAINING_CONFIG=training/config/training.smoke.yaml" \
-  --env "ENV_BASE_URL=https://your-namespace-wargames-env-train.hf.space" \
+  --env "ENV_BASE_URL=https://your-namespace-faultline-env-train.hf.space" \
   --env "PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True" \
   --env "PUBLISH_ON_FINISH=true" \
   --env "PUBLISH_MERGED=true" \
   training/jobs/run_on_hf.py
 ```
 
-Smoke pushes to `wargames-red-smoke-{lora,merged}` (defaults in `training/config/publish.yaml`).
+Smoke pushes to `faultline-red-smoke-{lora,merged}` (defaults in `training/config/publish.yaml`).
 
 ## Real Run (h200, ~$13 for 60 steps)
 
@@ -77,7 +77,7 @@ hf jobs uv run --detach \
   --flavor h200 --timeout 4h \
   --secrets-file ./.secrets \
   --env "TRAINING_CONFIG=training/config/training.base.yaml" \
-  --env "ENV_BASE_URL=https://your-namespace-wargames-env-train.hf.space" \
+  --env "ENV_BASE_URL=https://your-namespace-faultline-env-train.hf.space" \
   --env "PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True" \
   --env "PUBLISH_ON_FINISH=true" \
   --env "PUBLISH_MERGED=true" \
@@ -141,8 +141,8 @@ Set on the job:
 Targets are read from `training/config/publish.yaml`:
 
 ```yaml
-adapter_repo_id: your-namespace/wargames-red-qwen3-8b-lora
-merged_repo_id:  your-namespace/wargames-red-qwen3-8b
+adapter_repo_id: your-namespace/faultline-red-qwen3-8b-lora
+merged_repo_id:  your-namespace/faultline-red-qwen3-8b
 private: false
 license: mit
 ```

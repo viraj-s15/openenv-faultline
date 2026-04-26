@@ -5,14 +5,14 @@ from enum import Enum, IntEnum
 from pathlib import Path
 from typing import Callable, Protocol, cast
 
-from wargames_env.models import SystemMetrics
-from wargames_env.server.blue_llm import (
+from faultline_env.models import SystemMetrics
+from faultline_env.server.blue_llm import (
     MetricsProvider,
     ProcessStatusProvider,
     build_default_blue_provider,
     run_blue_llm_tick,
 )
-from wargames_env.server.config_baseline import ConfigBaseline
+from faultline_env.server.config_baseline import ConfigBaseline
 
 
 class BlueMode(str, Enum):

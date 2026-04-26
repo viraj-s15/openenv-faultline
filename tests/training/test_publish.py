@@ -5,7 +5,7 @@ from training.publish.model_card import build_model_card_text
 
 def test_model_card_mentions_base_model_and_artifact_kind():
     text = build_model_card_text(
-        repo_id="your-org/wargames-red-lora",
+        repo_id="your-org/faultline-red-lora",
         base_model="Qwen/Qwen2.5-7B-Instruct",
         artifact_kind="adapter",
     )

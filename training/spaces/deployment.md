@@ -1,8 +1,8 @@
 ## Quick deploy via HF CLI
 
 Use the **merged model** repo for inference endpoints, not the LoRA adapter repo:
-- `Veer15/wargames-red-qwen3-8b`
-- not `Veer15/wargames-red-qwen3-8b-lora`
+- `Veer15/faultline-red-qwen3-8b`
+- not `Veer15/faultline-red-qwen3-8b-lora`
 
 1. Log in and inspect the endpoint catalog options:
 
@@ -15,7 +15,7 @@ hf endpoints catalog ls | head -50
 
 ```bash
 hf endpoints deploy faultline-red \
-  --repo Veer15/wargames-red-qwen3-8b \
+  --repo Veer15/faultline-red-qwen3-8b \
   --task text-generation \
   --framework pytorch \
   --accelerator gpu \
@@ -62,10 +62,10 @@ docker run --rm \
   -e BLUE_API_BASE_URL="<YOUR_ENDPOINT_URL>/v1" \
   -v "$PWD/outputs:/home/user/app/outputs" \
   -v "$PWD/evals:/home/user/app/evals:ro" \
-  wargames-inference \
+  faultline-inference \
   python evals/run_red_blue_benchmark.py \
     --provider hf \
-    --models "Veer15/wargames-red-qwen3-8b" \
+    --models "Veer15/faultline-red-qwen3-8b" \
     --max-steps 30
 ```
 

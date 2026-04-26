@@ -1,8 +1,8 @@
 import subprocess
 from pathlib import Path
 
-from wargames_env.models import SystemMetrics
-from wargames_env.server.blue_defender import (
+from faultline_env.models import SystemMetrics
+from faultline_env.server.blue_defender import (
     BlueAction,
     BlueDefender,
     BlueDefenseLevel,
@@ -10,9 +10,9 @@ from wargames_env.server.blue_defender import (
     BlueSelection,
     select_blue_defender,
 )
-from wargames_env.server.blue_llm import BLUE_SYSTEM_PROMPT, build_blue_prompt
-from wargames_env.server.config_baseline import ConfigBaseline
-from wargames_env.server.env import WarGamesEnv
+from faultline_env.server.blue_llm import BLUE_SYSTEM_PROMPT, build_blue_prompt
+from faultline_env.server.config_baseline import ConfigBaseline
+from faultline_env.server.env import FaultlineEnv
 
 
 class FakeProcessManager:
@@ -43,8 +43,8 @@ class FakePoller:
         pass
 
 
-def make_env(tmp_path: Path) -> WarGamesEnv:
-    env = WarGamesEnv(project_root=tmp_path, mesh_root=tmp_path / "mesh")
+def make_env(tmp_path: Path) -> FaultlineEnv:
+    env = FaultlineEnv(project_root=tmp_path, mesh_root=tmp_path / "mesh")
     env._process_manager = FakeProcessManager()
     env._metrics_poller = FakePoller()
     env._redis_flush = lambda: None

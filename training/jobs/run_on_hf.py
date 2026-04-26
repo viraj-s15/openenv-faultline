@@ -5,7 +5,7 @@
 #   "huggingface_hub>=0.27",
 # ]
 # ///
-"""Bootstrap the WarGames training repo inside an HF Job container, then exec
+"""Bootstrap the Faultline training repo inside an HF Job container, then exec
 the GRPO training entrypoint.
 
 Job constraints:
@@ -25,10 +25,10 @@ from pathlib import Path
 
 REPO_URL = os.environ.get(
     "TRAINING_REPO_URL",
-    "https://huggingface.co/spaces/Veer15/wargames-env-train",
+    "https://huggingface.co/spaces/Veer15/faultline-env-train",
 )
 REPO_REF = os.environ.get("TRAINING_REPO_REF", "main")
-WORKDIR = Path("/tmp/wargames-train")
+WORKDIR = Path("/tmp/faultline-train")
 
 
 def _wait_for_cuda(max_wait_s: int = 180) -> None:
@@ -83,7 +83,7 @@ def main() -> int:
         print("HF_TOKEN missing", file=sys.stderr)
         return 2
     if not os.environ.get("ENV_BASE_URL"):
-        print("ENV_BASE_URL missing (point at the live wargames Space)", file=sys.stderr)
+        print("ENV_BASE_URL missing (point at the live faultline Space)", file=sys.stderr)
         return 2
 
     if not WORKDIR.exists():

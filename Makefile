@@ -1,5 +1,5 @@
-SPACE_IMAGE ?= wargames-space
-INFERENCE_IMAGE ?= wargames-inference
+SPACE_IMAGE ?= faultline-space
+INFERENCE_IMAGE ?= faultline-inference
 PORT ?= 8000
 
 .PHONY: validate build-space run-space smoke-space build-inference docker-check

@@ -10,8 +10,8 @@ from huggingface_hub import HfApi, hf_hub_download
 from transformers import AutoTokenizer
 
 TARGET_REPOS = [
-    "Veer15/wargames-red-qwen3-8b-lora",
-    "Veer15/wargames-red-qwen3-8b",
+    "Veer15/faultline-red-qwen3-8b-lora",
+    "Veer15/faultline-red-qwen3-8b",
 ]
 BASE_MODEL = os.environ.get("BASE_MODEL", "Qwen/Qwen3-8B")
 

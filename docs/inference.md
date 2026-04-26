@@ -1,6 +1,6 @@
 # Running Red-vs-Blue Inference
 
-This document covers Dockerized Red-vs-Blue benchmark runs for WarGames.
+This document covers Dockerized Red-vs-Blue benchmark runs for Faultline.
 
 ## Build the Inference Image
 
@@ -10,7 +10,7 @@ Build the local benchmark image from `Dockerfile.inference`:
 make build-inference
 ```
 
-This creates the `wargames-inference` image. Rebuild it after changing prompts, environment logic, reward logic, or benchmark code.
+This creates the `faultline-inference` image. Rebuild it after changing prompts, environment logic, reward logic, or benchmark code.
 
 ## Required Environment Variables
 
@@ -44,7 +44,7 @@ docker run --rm \
   -e OPENROUTER_API_KEY \
   -v "$PWD/outputs:/home/user/app/outputs" \
   -v "$PWD/evals:/home/user/app/evals:ro" \
-  wargames-inference \
+  faultline-inference \
   python evals/run_red_blue_benchmark.py \
     --models "qwen/qwen3.5-9b" \
     --max-steps 30
@@ -61,7 +61,7 @@ docker run --rm \
   -e OPENROUTER_API_KEY \
   -v "$PWD/outputs:/home/user/app/outputs" \
   -v "$PWD/evals:/home/user/app/evals:ro" \
-  wargames-inference \
+  faultline-inference \
   python evals/run_red_blue_benchmark.py \
     --models "meta-llama/llama-3.1-8b-instruct,qwen/qwen3.5-9b" \
     --max-steps 30
@@ -75,7 +75,7 @@ docker run --rm \
   -e OPENCODE_GO_URL \
   -v "$PWD/outputs:/home/user/app/outputs" \
   -v "$PWD/evals:/home/user/app/evals:ro" \
-  wargames-inference \
+  faultline-inference \
   python evals/run_red_blue_benchmark.py \
     --models "minimax-m2.7" \
     --max-steps 30

@@ -8,7 +8,7 @@ def build_model_card_text(
     base_model: str,
     artifact_kind: str,
     license: str = "mit",
-    tags: tuple[str, ...] = ("grpo", "wargames", "red-team", "trl"),
+    tags: tuple[str, ...] = ("grpo", "faultline", "red-team", "trl"),
 ) -> str:
     tag_block = "\n".join(f"- {tag}" for tag in tags)
     library_name = "transformers" if artifact_kind == "merged" else "peft"
@@ -25,6 +25,6 @@ def build_model_card_text(
         f"# {repo_id}\n\n"
         f"Artifact kind: {artifact_kind}\n\n"
         f"Base model: `{base_model}`\n\n"
-        "Trained on the WarGames GRPO curriculum against the scripted Blue defender.\n"
+        "Trained on the Faultline GRPO curriculum against the scripted Blue defender.\n"
         "Red Team agent that issues bash commands as JSON `{\"command\": \"...\"}`.\n"
     )

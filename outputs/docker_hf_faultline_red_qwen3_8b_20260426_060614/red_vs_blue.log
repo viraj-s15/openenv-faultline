@@ -1,4 +1,4 @@
-[START] task=phase-2-blue-llm-showdown env=docker red_model=Veer15/wargames-red-qwen3-8b(hf) blue_model=Veer15/wargames-red-qwen3-8b(hf) max_steps=30
+[START] task=phase-2-blue-llm-showdown env=docker red_model=Veer15/faultline-red-qwen3-8b(hf) blue_model=Veer15/faultline-red-qwen3-8b(hf) max_steps=30
 <think>
 
 </think>

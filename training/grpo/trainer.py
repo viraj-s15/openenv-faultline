@@ -1,6 +1,6 @@
-"""GRPO trainer wiring for the WarGames Red agent.
+"""GRPO trainer wiring for the Faultline Red agent.
 
-Bridges TRL >=1.2 GRPO with the live WarGames environment through a multi-turn
+Bridges TRL >=1.2 GRPO with the live Faultline environment through a multi-turn
 vLLM rollout:
 
 - `make_rollout_func` returns a TRL `RolloutFunc` that, for each prompt in a

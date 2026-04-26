@@ -1,4 +1,4 @@
-# building faultline: a wargames env for training adversarial agents
+# building faultline: a faultline env for training adversarial agents
 
 > *"the only winning move is to learn."*
 
@@ -89,7 +89,7 @@ eleven components, in `[0, 1]`, then weighted and clipped:
 | `no_op_penalty` | −0.1 | nothing moved |
 | `repeat_penalty` | −0.1 | same command as a recent attempt |
 
-source: `src/wargames_env/server/reward.py`.
+source: `src/faultline_env/server/reward.py`.
 
 the most important number in that table is `stealth_bonus`. without it, an agent learns "spike latency, get reward, repeat." with it, the agent learns "spike latency in a way that blue can't easily roll back." that's where the actual security intuition lives.
 
@@ -224,8 +224,8 @@ training finished at step 60.
 the headline: reward variance stayed alive the entire run. `frac_reward_zero_std=0` means GRPO never lost the signal it needed to distinguish better attacks from worse ones. that's the failure mode for short GRPO runs — all generations in a group converge, std collapses to zero, and the gradient is noise. didn't happen.
 
 published artifacts:
-- adapter: `Veer15/wargames-red-qwen3-8b-lora`
-- merged: `Veer15/wargames-red-qwen3-8b`
+- adapter: `Veer15/faultline-red-qwen3-8b-lora`
+- merged: `Veer15/faultline-red-qwen3-8b`
 
 ### the honest part
 
@@ -263,20 +263,20 @@ prioritized list:
 
 ## links
 
-- HF Space (live environment): https://huggingface.co/spaces/Veer15/wargames-env-train
+- HF Space (live environment): https://huggingface.co/spaces/Veer15/faultline-env-train
 - W&B run: https://api.wandb.ai/links/viraj-shah1503-none/l5wy9mu5
-- LoRA adapter: https://huggingface.co/Veer15/wargames-red-qwen3-8b-lora
-- merged model: https://huggingface.co/Veer15/wargames-red-qwen3-8b
+- LoRA adapter: https://huggingface.co/Veer15/faultline-red-qwen3-8b-lora
+- merged model: https://huggingface.co/Veer15/faultline-red-qwen3-8b
 - repo: this repository
 
 source pointers for everything above:
 
-- reward components → `src/wargames_env/server/reward.py`
-- blue curriculum → `src/wargames_env/server/blue_defender.py`
+- reward components → `src/faultline_env/server/reward.py`
+- blue curriculum → `src/faultline_env/server/blue_defender.py`
 - curriculum schedule → `training/config/curriculum.l0-l4.yaml`
 - training config → `training/config/training.base.yaml`
-- env shell execution → `src/wargames_env/server/env.py:154` (`subprocess.run(command, shell=True)`)
+- env shell execution → `src/faultline_env/server/env.py:154` (`subprocess.run(command, shell=True)`)
 - red prompt → `inference.py` (search `SYSTEM_PROMPT`)
-- kill-budget enforcement → `_kill_budget_block` in `inference.py`, mirrored from `DIRECT_PROCESS_KILL_PATTERN` in `src/wargames_env/server/env.py`
+- kill-budget enforcement → `_kill_budget_block` in `inference.py`, mirrored from `DIRECT_PROCESS_KILL_PATTERN` in `src/faultline_env/server/env.py`
 - HF endpoint deployment story → `training/spaces/deployment.md`
 - HF jobs launch → `training/jobs/launch.md`

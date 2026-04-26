@@ -1,9 +1,9 @@
 import pytest
 
-from wargames_env.models import SystemMetrics
-from wargames_env.server.blue_defender import BlueDefenseLevel, BlueMode
-from wargames_env.server.env import WarGamesEnv
-from wargames_env.server.reward import RewardContext, compute_red_reward
+from faultline_env.models import SystemMetrics
+from faultline_env.server.blue_defender import BlueDefenseLevel, BlueMode
+from faultline_env.server.env import FaultlineEnv
+from faultline_env.server.reward import RewardContext, compute_red_reward
 
 
 def metrics(
@@ -233,7 +233,7 @@ def test_environment_step_uses_metric_snapshots_for_dense_reward(tmp_path, monke
         def stop(self):
             pass
 
-    env = WarGamesEnv(project_root=tmp_path, mesh_root=tmp_path / "mesh")
+    env = FaultlineEnv(project_root=tmp_path, mesh_root=tmp_path / "mesh")
     env._process_manager = FakeProcessManager()
     env._metrics_poller = SequencePoller()
     env._blue_defender = FakeBlueDefender()
@@ -301,7 +301,7 @@ def test_environment_tracks_recent_commands_for_repeat_penalty(tmp_path, monkeyp
         def stop(self):
             pass
 
-    env = WarGamesEnv(project_root=tmp_path, mesh_root=tmp_path / "mesh")
+    env = FaultlineEnv(project_root=tmp_path, mesh_root=tmp_path / "mesh")
     env._process_manager = FakeProcessManager()
     env._metrics_poller = RepeatPoller()
     env._blue_defender = FakeBlueDefender()
@@ -329,7 +329,7 @@ def test_environment_tracks_recent_commands_for_repeat_penalty(tmp_path, monkeyp
 
 
 def test_reset_clears_recent_command_history(tmp_path, monkeypatch):
-    env = WarGamesEnv(project_root=tmp_path, mesh_root=tmp_path / "mesh")
+    env = FaultlineEnv(project_root=tmp_path, mesh_root=tmp_path / "mesh")
     env._recent_commands = ["redis-cli LLEN job_queue"]
     monkeypatch.setattr(env, "_redis_flush", lambda: None)
 

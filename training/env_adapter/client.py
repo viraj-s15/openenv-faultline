@@ -2,7 +2,7 @@ import time
 
 import httpx
 
-from wargames_env.models import StepResult, WarGamesAction, WarGamesObservation, WarGamesState
+from faultline_env.models import StepResult, FaultlineAction, FaultlineObservation, FaultlineState
 
 
 _RETRY_STATUS = {500, 502, 503, 504}
@@ -26,7 +26,7 @@ def _is_retriable(exc: BaseException) -> bool:
     return False
 
 
-class WarGamesTrainingClient:
+class FaultlineTrainingClient:
     def __init__(self, base_url: str) -> None:
         self.base_url = base_url.rstrip("/")
         self._client = httpx.Client(base_url=self.base_url, timeout=45.0)
@@ -51,15 +51,15 @@ class WarGamesTrainingClient:
             f"{method} {path} failed after {len(_RETRY_DELAYS_S) + 1} attempts: {last_exc}"
         ) from last_exc
 
-    def reset(self, task_name: str) -> WarGamesObservation:
+    def reset(self, task_name: str) -> FaultlineObservation:
         response = self._request_with_retry("POST", "/reset", params={"task_name": task_name})
-        return WarGamesObservation.model_validate(response.json())
+        return FaultlineObservation.model_validate(response.json())
 
     def step(self, command: str) -> StepResult:
-        payload = WarGamesAction(command=command).model_dump()
+        payload = FaultlineAction(command=command).model_dump()
         response = self._request_with_retry("POST", "/step", json=payload)
         return StepResult.model_validate(response.json())
 
-    def state(self) -> WarGamesState:
+    def state(self) -> FaultlineState:
         response = self._request_with_retry("GET", "/state")
-        return WarGamesState.model_validate(response.json())
+        return FaultlineState.model_validate(response.json())

@@ -1,5 +1,5 @@
 ---
-title: WarGames Demo
+title: Faultline Demo
 emoji: "🛡️"
 colorFrom: red
 colorTo: gray
@@ -8,9 +8,9 @@ app_port: 8000
 pinned: false
 ---
 
-# WarGames Demo Space
+# Faultline Demo Space
 
-This Space hosts the WarGames environment demo and evaluation flow.
+This Space hosts the Faultline environment demo and evaluation flow.
 
 - Artifact mode: `adapter` or `merged`
 - Model repo: set via `MODEL_REPO_ID`

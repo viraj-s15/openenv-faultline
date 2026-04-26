@@ -1,14 +1,14 @@
 spec_version: 1
-name: wargames
+name: faultline
 version: "0.1.0"
 type: space
 runtime: fastapi
 app: server.app:app
 port: 8000
 description: >
-  WarGames is an OpenEnv environment where agents interact with a live
+  Faultline is an OpenEnv environment where agents interact with a live
   distributed system through bash commands.
-author: Team WarGames
+author: Team Faultline
 tags:
   - openenv
   - distributed-systems
@@ -16,16 +16,16 @@ tags:
   - reinforcement-learning
 
 client:
-  class_name: WarGamesClient
-  module: wargames_env.client
+  class_name: FaultlineClient
+  module: faultline_env.client
 
 action:
-  class_name: WarGamesAction
-  module: wargames_env.models
+  class_name: FaultlineAction
+  module: faultline_env.models
 
 observation:
-  class_name: WarGamesObservation
-  module: wargames_env.models
+  class_name: FaultlineObservation
+  module: faultline_env.models
 
 reward_range: [0.0, 1.0]
 
