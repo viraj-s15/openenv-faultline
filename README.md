@@ -18,6 +18,8 @@ Distributed systems breaking under attack was one of Fibr AI's most persistent i
 
 Faultline is an adversarial environment for training agents on a live distributed system.
 
+Tagline: *An 8B model walks into a server room...*
+
 The same environment supports two roles:
 - **Red** attacks the system.
 - **Blue** defends it.
@@ -53,7 +55,7 @@ The observation includes:
 - current system metrics
 - episode state
 
-Reward is dense per step, in `[0, 1]`:
+Reward is dense per step, in `[0, 1]`. Or, less formally: *how much damage did you cause?*
 
 | Component | What it measures |
 |---|---|
@@ -78,7 +80,7 @@ Blue during training is the scripted curriculum:
 | L1 | Restarts crashed services every 5 seconds. |
 | L2 | L1 + restores modified configs. |
 | L3 | L2 + sanitizes the queue and clears stale locks. |
-| L4 | Rolls back as soon as metrics cross thresholds. |
+| L4 | Rolls back as soon as metrics cross thresholds. Final boss: **YOU SHALL NOT PASS**. |
 
 L4 is the target.
 
