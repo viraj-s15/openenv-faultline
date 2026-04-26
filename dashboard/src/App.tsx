@@ -428,17 +428,6 @@ function Dashboard({ runId, onBack }: { runId: string; onBack: () => void }) {
           </span>
         </div>
 
-        {s.isComplete && (
-          <>
-            <div style={{ width: 1, height: 14, background: C.slate700 }} />
-            <div style={{ color: C.red, fontSize: 11, fontWeight: 600 }}>
-              MESH DESTROYED
-            </div>
-            <div style={{ color: C.slate300, fontSize: 11 }}>
-              Final — <span style={{ color: C.red }}>Red {s.redScore}%</span> : <span style={{ color: C.blue }}>Blue {s.blueScore}%</span>
-            </div>
-          </>
-        )}
 
         <div className="ml-auto flex items-center gap-1" style={{ color: C.slate500, fontSize: 10 }}>
           <Cpu size={11} />
