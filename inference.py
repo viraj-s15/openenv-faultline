@@ -55,6 +55,20 @@ Respond with compact JSON where `command` is required: {"command":"<bash command
 No markdown. No explanation outside JSON."""
 
 
+RED_NO_THINK_PREFIX = "/no_think\n"
+
+
+def _red_no_think_enabled() -> bool:
+    return os.getenv("RED_NO_THINK", "true").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def red_system_prompt() -> str:
+    """Return the Red system prompt, prepending Qwen3 `/no_think` when RED_NO_THINK is set."""
+    if _red_no_think_enabled():
+        return RED_NO_THINK_PREFIX + SYSTEM_PROMPT
+    return SYSTEM_PROMPT
+
+
 TASK_SYMPTOMS: dict[str, tuple[str, ...]] = {
     "phase-2-blue-l0": (
         "No Blue defense is active.",
@@ -307,7 +321,7 @@ def build_prompt(
 
 
 def _run_episode(client: Any, env: WarGamesEnvClient, task_name: str) -> None:
-    messages: list[dict[str, str]] = [{"role": "system", "content": SYSTEM_PROMPT}]
+    messages: list[dict[str, str]] = [{"role": "system", "content": red_system_prompt()}]
     rewards: list[float] = []
 
     done = False

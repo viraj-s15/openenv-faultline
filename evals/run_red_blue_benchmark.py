@@ -238,7 +238,8 @@ def write_csv(path: Path, fieldnames: list[str], rows: list[dict[str, Any]]) -> 
         writer.writerows(rows)
 
 
-def run_model(model: str, max_steps: int, output_root: Path, timestamp: str, *, provider: str = "openrouter") -> Path:
+def run_model(model: str, max_steps: int, output_root: Path, timestamp: str, *, provider: str = "openrouter", red_no_think: bool = True) -> Path:
+    os.environ["RED_NO_THINK"] = "true" if red_no_think else "false"
     configure = configure_openrouter if provider == "openrouter" else configure_hf
     output_dir = output_root / f"docker_{provider}_{folder_label(model)}_{timestamp}"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -256,7 +257,7 @@ def run_model(model: str, max_steps: int, output_root: Path, timestamp: str, *, 
         max_retries=1,
     )
     env = WarGamesEnv(project_root=Path.cwd(), mesh_root=Path.cwd() / "mesh")
-    messages = [{"role": "system", "content": inference.SYSTEM_PROMPT}]
+    messages = [{"role": "system", "content": inference.red_system_prompt()}]
     attempt_history: list[dict[str, Any]] = []
     step_rows: list[dict[str, Any]] = []
     rewards: list[float] = []
@@ -426,6 +427,13 @@ def main() -> None:
     parser.add_argument("--provider", choices=["openrouter", "hf"], default="openrouter", help="LLM provider (default: openrouter)")
     parser.add_argument("--output-root", default="outputs")
     parser.add_argument("--timestamp", default=datetime.now().strftime("%Y%m%d_%H%M%S"))
+    parser.add_argument(
+        "--red-no-think",
+        dest="red_no_think",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Prepend Qwen3 `/no_think` to the Red system prompt (default: enabled). Use --no-red-no-think to disable.",
+    )
     args = parser.parse_args()
 
     output_root = Path(args.output_root)
@@ -436,6 +444,7 @@ def main() -> None:
             output_root=output_root,
             timestamp=args.timestamp,
             provider=args.provider,
+            red_no_think=args.red_no_think,
         )
 
 
