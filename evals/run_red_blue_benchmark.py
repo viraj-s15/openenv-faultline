@@ -291,7 +291,7 @@ def run_model(
     client = OpenAI(
         api_key=os.environ["API_KEY"],
         base_url=os.environ["API_BASE_URL"],
-        timeout=30.0,
+        timeout=120.0,
         max_retries=1,
     )
     env = WarGamesEnv(project_root=Path.cwd(), mesh_root=Path.cwd() / "mesh")
