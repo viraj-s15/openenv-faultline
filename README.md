@@ -11,7 +11,7 @@ short_description: Faultline — adversarial Red vs Blue on a live mesh
 
 > *"The only winning move is to learn."*
 
-Distributed systems breaking under attack was one of Fibr AI's most persistent internal headaches. That's what we tackled in Round 1. During that work, something Dario Amodei (Anthropic) said in a podcast stuck with us: Mythos was trained for coding, but had developed an unusually strong intuition for security. It wasn't designed in. It emerged.
+Distributed systems breaking under attack was one of Fibr AI's most persistent internal headaches. That's what we tackled in Round 1. During that work, one idea kept coming up: models trained for coding often seem to pick up useful security instincts along the way. That got us thinking — what if you built an environment specifically to train for that?
 
 
 ## What it is
